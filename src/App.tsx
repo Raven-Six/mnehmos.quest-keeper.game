@@ -14,7 +14,7 @@ function App() {
       try {
         await mcpManager.initializeAll();
         console.log("[App] MCP Initialized successfully");
-        
+
         // Initial sync
         console.log("[App] Starting initial state sync...");
         syncState();
@@ -32,7 +32,7 @@ function App() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [syncState, syncCombatState]);
+  }, []); // Empty dependency array to run only once on mount
 
   return (
     <AppLayout />

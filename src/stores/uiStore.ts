@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type ActiveTab = '3d' | 'character' | 'inventory' | 'world' | 'notes';
+export type ActiveTab = 'adventure' | 'combat' | 'character' | 'map' | 'journal' | 'settings';
 export type Theme = 'green' | 'amber';
 
 interface UIState {
@@ -13,7 +13,7 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  activeTab: '3d', // Default as per likely usage, though 'world' or 'sheet' might be valid too.
+  activeTab: 'adventure',
   isSidebarOpen: false,
   theme: 'green',
   setActiveTab: (activeTab) => set({ activeTab }),

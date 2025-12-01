@@ -23,24 +23,28 @@ export class McpClient {
     private process: Child | null = null;
     private pendingRequests: Map<string | number, (response: JsonRpcResponse) => void> = new Map();
     private serverName: string;
+    private isConnected: boolean = false;
+    private isInitialized: boolean = false;
 
     constructor(serverName: string) {
         this.serverName = serverName;
     }
 
     async connect() {
+        if (this.isConnected) {
+            console.log(`[McpClient] ${this.serverName} already connected, skipping...`);
+            return;
+        }
+
         try {
             console.log(`[McpClient] Spawning sidecar: ${this.serverName}`);
-            // Tauri sidecar command expects the name configured in tauri.conf.json
-            // tauri.conf.json has "binaries/rpg-game-state-server"
-            // So we MUST pass "binaries/rpg-game-state-server".
-            // The serverName passed in constructor is just "rpg-game-state-server".
             const command = Command.sidecar(`binaries/${this.serverName}`);
 
-            // Set up event listeners before spawning
             command.on('close', (data) => {
                 console.log(`[McpClient] ${this.serverName} finished with code ${data.code} and signal ${data.signal}`);
                 this.process = null;
+                this.isConnected = false;
+                this.isInitialized = false;
             });
 
             command.on('error', (error) => {
@@ -56,6 +60,7 @@ export class McpClient {
             });
 
             this.process = await command.spawn();
+            this.isConnected = true;
             console.log(`[McpClient] ${this.serverName} spawned successfully. Pid: ${this.process.pid}`);
 
         } catch (error) {
@@ -66,7 +71,6 @@ export class McpClient {
 
     private handleOutput(line: string) {
         try {
-            // Attempt to parse line as JSON-RPC response
             const response = JSON.parse(line) as JsonRpcResponse;
             if (response.id && this.pendingRequests.has(response.id)) {
                 const resolve = this.pendingRequests.get(response.id);
@@ -78,7 +82,6 @@ export class McpClient {
                 console.log(`[McpClient] ${this.serverName} received notification or unknown response:`, response);
             }
         } catch (e) {
-            // If not JSON, just log it
             console.log(`[McpClient] ${this.serverName} stdout: ${line}`);
         }
     }
@@ -102,7 +105,7 @@ export class McpClient {
                     this.pendingRequests.delete(id);
                     reject(new Error(`Request ${method} timed out`));
                 }
-            }, 10000); // 10s timeout
+            }, 10000);
 
             this.pendingRequests.set(id, (response) => {
                 clearTimeout(timeout);
@@ -113,7 +116,6 @@ export class McpClient {
                 }
             });
 
-            // Send to stdin
             const jsonString = JSON.stringify(request) + '\n';
             this.process!.write(jsonString).catch((err) => {
                 clearTimeout(timeout);
@@ -124,8 +126,12 @@ export class McpClient {
     }
 
     async initialize() {
+        if (this.isInitialized) {
+            console.log(`[McpClient] ${this.serverName} already initialized, skipping...`);
+            return;
+        }
+
         console.log(`[McpClient] Initializing ${this.serverName}...`);
-        // MCP Initialize request
         const result = await this.sendRequest('initialize', {
             protocolVersion: '2024-11-05',
             capabilities: {},
@@ -134,6 +140,7 @@ export class McpClient {
                 version: '0.1.0',
             },
         });
+        this.isInitialized = true;
         console.log(`[McpClient] ${this.serverName} initialized:`, result);
         return result;
     }
@@ -161,11 +168,10 @@ class McpManager {
     private static instance: McpManager;
     public gameStateClient: McpClient;
     public combatClient: McpClient;
+    private isInitializing: boolean = false;
+    private initPromise: Promise<void> | null = null;
 
     private constructor() {
-        // tauri.conf.json has "binaries/rpg-game-state-server"
-        // We pass "rpg-game-state-server" here.
-        // McpClient prepends "binaries/" in connect().
         this.gameStateClient = new McpClient('rpg-game-state-server');
         this.combatClient = new McpClient('rpg-combat-engine-server');
     }
@@ -178,10 +184,20 @@ class McpManager {
     }
 
     async initializeAll() {
-        await Promise.all([
+        if (this.isInitializing && this.initPromise) {
+            console.log('[McpManager] Initialization already in progress, waiting...');
+            return this.initPromise;
+        }
+
+        this.isInitializing = true;
+        this.initPromise = Promise.all([
             this.gameStateClient.connect().then(() => this.gameStateClient.initialize()),
             this.combatClient.connect().then(() => this.combatClient.initialize()),
-        ]);
+        ]).then(() => {
+            this.isInitializing = false;
+        });
+
+        return this.initPromise;
     }
 }
 
