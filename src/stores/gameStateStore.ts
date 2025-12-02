@@ -101,10 +101,13 @@ export interface CharacterStats {
 
 interface GameState {
   inventory: InventoryItem[];
+  worlds: any[];
   world: WorldState;
   notes: Note[];
   quests: Quest[];
   activeCharacter: CharacterStats | null;
+  activeCharacterId: string | null;
+  activeWorldId: string | null;
   party: CharacterStats[];
   isSyncing: boolean;
   lastSyncTime: number;
@@ -117,7 +120,9 @@ interface GameState {
   updateNote: (id: string, content: string) => void;
   deleteNote: (id: string) => void;
   setActiveCharacter: (char: CharacterStats | null) => void;
-  syncState: () => Promise<void>;
+  setActiveCharacterId: (id: string | null) => void;
+  setActiveWorldId: (id: string | null) => void;
+  syncState: (force?: boolean) => Promise<void>;
 }
 
 /**
@@ -174,22 +179,23 @@ function parseInventoryFromJson(inventoryData: any): InventoryItem[] {
   }
 
   inventoryData.items.forEach((item: any, index: number) => {
+    const fullItem = item.item || item; // handle detailed inventory format
     // Look up item details in reference database
-    const itemName = item.name || item.itemId || '';
+    const itemName = fullItem.name || item.name || item.itemId || '';
     const refItemKey = Object.keys(dnd5eItems).find(
       k => k.toLowerCase() === itemName.toLowerCase()
     );
     const refItem = refItemKey ? dnd5eItems[refItemKey] : null;
 
     items.push({
-      id: item.id || item.itemId || `item-${index}`,
+      id: fullItem.id || item.id || item.itemId || `item-${index}`,
       name: refItem?.name || itemName || 'Unknown Item',
-      description: refItem?.description || item.description || '',
+      description: refItem?.description || fullItem.description || '',
       quantity: item.quantity || 1,
-      type: refItem?.type || item.type || 'misc',
-      weight: refItem?.weight || item.weight,
-      value: refItem ? parseFloat(refItem.value?.replace(/[^0-9.]/g, '') || '0') : item.value,
-      equipped: item.equipped || false
+      type: refItem?.type || fullItem.type || item.type || 'misc',
+      weight: refItem?.weight || fullItem.weight || item.weight,
+      value: refItem ? parseFloat(refItem.value?.replace(/[^0-9.]/g, '') || '0') : (fullItem.value ?? item.value),
+      equipped: item.equipped || fullItem.equipped || false
     });
   });
 
@@ -279,6 +285,31 @@ function parseQuestsFromResponse(questData: any): Quest[] {
   return quests;
 }
 
+function parseWorldFromResponse(worldData: any): WorldState {
+  if (!worldData) {
+    return {
+      location: 'Unknown',
+      time: 'Unknown',
+      weather: 'Unknown',
+      date: 'Unknown',
+      environment: {},
+      npcs: {},
+      events: {}
+    };
+  }
+
+  return {
+    location: worldData.name || worldData.location || 'Unknown',
+    time: worldData.time || 'Unknown',
+    weather: worldData.weather || 'Unknown',
+    date: worldData.date || worldData.createdAt || 'Unknown',
+    environment: worldData.environment || {},
+    npcs: worldData.npcs || {},
+    events: worldData.events || {},
+    lastUpdated: worldData.updatedAt || new Date().toISOString()
+  };
+}
+
 /**
  * Convert quests to notes for backward compatibility with Notes UI
  */
@@ -314,6 +345,7 @@ function questsToNotes(quests: Quest[]): Note[] {
 
 export const useGameStateStore = create<GameState>((set, get) => ({
   inventory: [],
+  worlds: [],
   world: {
     time: 'Unknown',
     location: 'Unknown',
@@ -326,6 +358,8 @@ export const useGameStateStore = create<GameState>((set, get) => ({
   notes: [],
   quests: [],
   activeCharacter: null,
+  activeCharacterId: null,
+  activeWorldId: null,
   party: [],
   isSyncing: false,
   lastSyncTime: 0,
@@ -335,6 +369,11 @@ export const useGameStateStore = create<GameState>((set, get) => ({
   setNotes: (notes) => set({ notes }),
   setQuests: (quests) => set({ quests }),
   setActiveCharacter: (char) => set({ activeCharacter: char }),
+  setActiveCharacterId: (id) => set((state) => ({
+    activeCharacterId: id,
+    activeCharacter: state.party.find((c) => c.id === id) || state.activeCharacter
+  })),
+  setActiveWorldId: (id) => set({ activeWorldId: id }),
 
   addNote: (note) => set((state) => ({
     notes: [note, ...state.notes]
@@ -348,17 +387,17 @@ export const useGameStateStore = create<GameState>((set, get) => ({
     notes: state.notes.filter(n => n.id !== id)
   })),
 
-  syncState: async () => {
-    const { isSyncing, lastSyncTime } = get();
+  syncState: async (force = false) => {
+    const { isSyncing, lastSyncTime, activeCharacterId: storedActiveCharId, activeWorldId: storedWorldId } = get();
     
-    // Prevent concurrent syncs and rate limit to max once per 2 seconds
+    // Prevent concurrent syncs and rate limit to max once per 2 seconds unless forced
     if (isSyncing) {
       console.log('[GameStateStore] Sync already in progress, skipping');
       return;
     }
     
     const now = Date.now();
-    if (now - lastSyncTime < 2000) {
+    if (!force && now - lastSyncTime < 2000) {
       console.log('[GameStateStore] Rate limited, skipping sync');
       return;
     }
@@ -369,7 +408,8 @@ export const useGameStateStore = create<GameState>((set, get) => ({
       const { mcpManager } = await import('../services/mcpClient');
 
       // Active character ID (string UUID in rpg-mcp)
-      let activeCharId: string | null = null;
+      let activeCharId: string | null = storedActiveCharId || null;
+      let activeWorldId: string | null = storedWorldId || null;
 
       // ============================================
       // 1. Fetch Characters from rpg-mcp
@@ -406,95 +446,151 @@ export const useGameStateStore = create<GameState>((set, get) => ({
 
           if (allCharacters.length > 0) {
             // Use existing active character if still valid, otherwise use first
-            const currentActive = get().activeCharacter;
-            const stillExists = currentActive?.id && allCharacters.find(c => c.id === currentActive.id);
-            
-            const newActive = stillExists ? currentActive : allCharacters[0];
+            const currentActiveId = activeCharId;
+            const stillExists = currentActiveId && allCharacters.find(c => c.id === currentActiveId);
+            const chosen = stillExists ? allCharacters.find(c => c.id === currentActiveId)! : allCharacters[0];
             
             set({
-              activeCharacter: newActive,
+              activeCharacter: chosen,
+              activeCharacterId: chosen.id || null,
               party: allCharacters
             });
-            activeCharId = newActive?.id || null;
+            activeCharId = chosen.id || null;
+          } else {
+            set({ party: [], activeCharacter: null, activeCharacterId: null });
+            activeCharId = null;
           }
         } else {
           console.log('[GameStateStore] No characters found in database');
+          set({ party: [], activeCharacter: null, activeCharacterId: null });
+          activeCharId = null;
         }
       } catch (e) {
         console.warn('[GameStateStore] Failed to fetch character list:', e);
       }
 
-      // If we don't have an active character ID, we can't fetch inventory or quests
-      if (!activeCharId) {
-        console.log('[GameStateStore] No active character ID, skipping inventory/quest sync');
-        set({ isSyncing: false });
-        return;
-      }
+      if (activeCharId) {
+        console.log('[GameStateStore] Syncing data for character ID:', activeCharId);
 
-      console.log('[GameStateStore] Syncing data for character ID:', activeCharId);
+        // ============================================
+        // 2. Batch fetch inventory and quests in parallel
+        // ============================================
+        const batchResults = await executeBatchToolCalls(mcpManager.gameStateClient, [
+          { name: 'get_inventory_detailed', args: { characterId: activeCharId } },
+          { name: 'get_quest_log', args: { characterId: activeCharId } }
+        ]);
 
-      // ============================================
-      // 2. Batch fetch inventory and quests in parallel
-      // ============================================
-      const batchResults = await executeBatchToolCalls(mcpManager.gameStateClient, [
-        { name: 'get_inventory', args: { characterId: activeCharId } },
-        { name: 'get_quest_log', args: { characterId: activeCharId } }
-      ]);
-
-      // Process inventory result
-      const inventoryResult = batchResults.find(r => r.name === 'get_inventory');
-      if (inventoryResult && !inventoryResult.error) {
-        const inventoryData = parseMcpResponse<any>(inventoryResult.result, null);
-        
-        if (inventoryData) {
-          const items = parseInventoryFromJson(inventoryData);
-          console.log('[GameStateStore] Parsed', items.length, 'inventory items');
+        // Process inventory result
+        const inventoryResult = batchResults.find(r => r.name === 'get_inventory_detailed');
+        if (inventoryResult && !inventoryResult.error) {
+          const inventoryData = parseMcpResponse<any>(inventoryResult.result, null);
           
-          set((state) => {
-            // Update equipment from inventory if available
-            let newActiveCharacter = state.activeCharacter;
+          if (inventoryData) {
+            const items = parseInventoryFromJson(inventoryData);
+            console.log('[GameStateStore] Parsed', items.length, 'inventory items');
             
-            if (newActiveCharacter && inventoryData.equipment) {
-              const equipment = inventoryData.equipment;
-              newActiveCharacter = {
-                ...newActiveCharacter,
-                equipment: {
-                  armor: equipment.armor || 'None',
-                  weapons: [equipment.mainhand, equipment.offhand].filter(Boolean),
-                  other: [equipment.head, equipment.feet, equipment.accessory].filter(Boolean)
+            set((state) => {
+              // Update equipment from inventory if available
+              let newActiveCharacter = state.activeCharacter;
+              
+              if (newActiveCharacter) {
+                let armor = newActiveCharacter.equipment?.armor || 'None';
+                let weapons: string[] = newActiveCharacter.equipment?.weapons || [];
+                let other: string[] = newActiveCharacter.equipment?.other || [];
+
+                if (inventoryData.equipment) {
+                  const equipment = inventoryData.equipment;
+                  armor = equipment.armor || armor;
+                  weapons = [equipment.mainhand, equipment.offhand].filter(Boolean);
+                  other = [equipment.head, equipment.feet, equipment.accessory].filter(Boolean);
+                } else {
+                  const equippedItems = items.filter(i => i.equipped);
+                  const armorItem = equippedItems.find(i => (i.type || '').toLowerCase() === 'armor');
+                  const weaponItems = equippedItems.filter(i => (i.type || '').toLowerCase() === 'weapon');
+                  if (armorItem) armor = armorItem.name;
+                  if (weaponItems.length > 0) weapons = weaponItems.map(w => w.name);
                 }
+
+                newActiveCharacter = {
+                  ...newActiveCharacter,
+                  equipment: { armor, weapons, other }
+                };
+              }
+              
+              return {
+                inventory: items,
+                activeCharacter: newActiveCharacter
               };
-            }
-            
-            return {
-              inventory: items,
-              activeCharacter: newActiveCharacter
-            };
-          });
+            });
+          }
+        } else if (inventoryResult?.error) {
+          console.warn('[GameStateStore] Inventory fetch error:', inventoryResult.error);
         }
-      } else if (inventoryResult?.error) {
-        console.warn('[GameStateStore] Inventory fetch error:', inventoryResult.error);
+
+        // Process quest result
+        const questResult = batchResults.find(r => r.name === 'get_quest_log');
+        if (questResult && !questResult.error) {
+          const questData = parseMcpResponse<any>(questResult.result, null);
+          
+          if (questData) {
+            const quests = parseQuestsFromResponse(questData);
+            console.log('[GameStateStore] Parsed', quests.length, 'quests');
+            
+            // Convert quests to notes for UI display
+            const questNotes = questsToNotes(quests);
+            
+            set({ 
+              quests,
+              notes: questNotes
+            });
+          }
+        } else if (questResult?.error) {
+          console.warn('[GameStateStore] Quest fetch error:', questResult.error);
+        }
+      } else {
+        console.log('[GameStateStore] No active character ID, skipping inventory/quest sync');
+        set({ inventory: [], quests: [], notes: [] });
       }
 
-      // Process quest result
-      const questResult = batchResults.find(r => r.name === 'get_quest_log');
-      if (questResult && !questResult.error) {
-        const questData = parseMcpResponse<any>(questResult.result, null);
-        
-        if (questData) {
-          const quests = parseQuestsFromResponse(questData);
-          console.log('[GameStateStore] Parsed', quests.length, 'quests');
-          
-          // Convert quests to notes for UI display
-          const questNotes = questsToNotes(quests);
-          
-          set({ 
-            quests,
-            notes: questNotes
-          });
+      // ============================================
+      // 3. Fetch Worlds and active world state
+      // ============================================
+      try {
+        const worldsResult = await mcpManager.gameStateClient.callTool('list_worlds', {});
+        const worldsData = parseMcpResponse<any>(worldsResult, { worlds: [], count: 0 });
+        const worlds = worldsData.worlds || [];
+        set({ worlds });
+
+        if (worlds.length > 0) {
+          const existingWorld = activeWorldId && worlds.find((w: any) => w.id === activeWorldId);
+          const chosenWorld = existingWorld || worlds[0];
+          activeWorldId = chosenWorld.id || null;
+          set({ activeWorldId });
+
+          // Fetch detailed world info
+          let worldDetails: any = null;
+          try {
+            worldDetails = await mcpManager.gameStateClient.callTool('get_world', { id: chosenWorld.id });
+          } catch (err) {
+            console.warn('[GameStateStore] get_world failed, trying get_world_state', err);
+            try {
+              worldDetails = await mcpManager.gameStateClient.callTool('get_world_state', { worldId: chosenWorld.id });
+            } catch (err2) {
+              console.warn('[GameStateStore] get_world_state failed:', err2);
+            }
+          }
+
+          if (worldDetails) {
+            const parsedWorld = parseWorldFromResponse(parseMcpResponse<any>(worldDetails, worldDetails));
+            set({ world: parsedWorld });
+          } else {
+            set({ world: parseWorldFromResponse(chosenWorld) });
+          }
+        } else {
+          set({ world: parseWorldFromResponse(null), activeWorldId: null });
         }
-      } else if (questResult?.error) {
-        console.warn('[GameStateStore] Quest fetch error:', questResult.error);
+      } catch (e) {
+        console.warn('[GameStateStore] Failed to fetch worlds:', e);
       }
 
       console.log('[GameStateStore] Sync complete');

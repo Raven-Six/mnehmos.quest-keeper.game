@@ -736,6 +736,30 @@ export const ChatInput: React.FC = () => {
         history.unshift({ role: 'system', content: systemPrompt });
       }
 
+      // Inject active selection context so the LLM uses the UI-selected character/world by default
+      try {
+        const { useGameStateStore } = await import('../../stores/gameStateStore');
+        const gameState = useGameStateStore.getState();
+        const activeChar = gameState.activeCharacter;
+        const activeWorldId = gameState.activeWorldId;
+        const activeWorld = (gameState.worlds || []).find((w: any) => w.id === activeWorldId);
+
+        const selectionContext = [
+          'Use the UI-selected character and world as defaults; do NOT ask for IDs if not necessary.',
+          activeChar
+            ? `Active character: ${activeChar.name} (id: ${activeChar.id || 'unknown'}), level ${activeChar.level}, class ${activeChar.class}, HP ${activeChar.hp.current}/${activeChar.hp.max}, AC ${activeChar.stats?.dex ? 10 + Math.floor((activeChar.stats.dex - 10) / 2) : 'n/a'}.`
+            : 'No active character selected.',
+          activeWorld
+            ? `Active world: ${activeWorld.name} (id: ${activeWorld.id || 'unknown'}, size: ${activeWorld.width}x${activeWorld.height}).`
+            : 'No active world selected.',
+          'If the user asks for inventory/quests/status, default to the active character unless they explicitly name another.'
+        ].join('\n');
+
+        history.unshift({ role: 'system', content: selectionContext });
+      } catch (err) {
+        console.warn('[ChatInput] Failed to inject selection context into system prompt:', err);
+      }
+
       let currentStreamId = Date.now().toString() + '-ai';
       startStreamingMessage(currentStreamId, 'ai');
       let accumulatedContent = '';

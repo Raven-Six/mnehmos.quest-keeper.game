@@ -3,6 +3,9 @@ import { useGameStateStore } from '../../stores/gameStateStore';
 
 export const CharacterHeader: React.FC = () => {
   const activeCharacter = useGameStateStore(state => state.activeCharacter);
+  const party = useGameStateStore(state => state.party);
+  const setActiveCharacterId = useGameStateStore(state => state.setActiveCharacterId);
+  const syncState = useGameStateStore(state => state.syncState);
 
   if (!activeCharacter) {
     return (
@@ -31,6 +34,25 @@ export const CharacterHeader: React.FC = () => {
       </div>
 
       <div className="flex items-center space-x-6">
+        {/* Active selector */}
+        <div className="flex flex-col text-xs">
+          <span className="text-terminal-green/60 mb-1">Active</span>
+          <select
+            value={activeCharacter.id || ''}
+            onChange={(e) => {
+              setActiveCharacterId(e.target.value || null);
+              syncState(true);
+            }}
+            className="bg-terminal-black border border-terminal-green-dim text-terminal-green px-2 py-1 text-xs"
+          >
+            {party.map((c) => (
+              <option key={c.id || c.name} value={c.id || ''}>
+                {c.name} (Lv{c.level})
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* HP Bar */}
         <div className="flex flex-col w-32">
           <div className="flex justify-between text-xs mb-1">

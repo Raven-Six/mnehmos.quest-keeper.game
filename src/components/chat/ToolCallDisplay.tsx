@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { formatToolResponse } from '../../utils/toolResponseFormatter';
+import { CensorBlock } from './CensorBlock';
 
 interface ToolCallDisplayProps {
     toolName: string;
@@ -22,6 +23,77 @@ export const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
     const [isExpanded, setIsExpanded] = useState(true);
     const [showArgs, setShowArgs] = useState(false);
     const [showResponse, setShowResponse] = useState(true);
+    const remarkPlugins = useMemo(() => [remarkGfm], []);
+    const rehypePlugins = useMemo(() => [rehypeHighlight], []);
+
+    const formattedResponse = useMemo(() => {
+        if (!response) return '';
+
+        try {
+            // Use the beautiful formatter
+            const formatted = formatToolResponse(toolName, response);
+            return formatted;
+        } catch (e) {
+            // Fallback to original parsing
+            try {
+                const parsed = JSON.parse(response);
+                let content = '';
+                
+                if (parsed.content && Array.isArray(parsed.content)) {
+                    content = parsed.content
+                        .map((c: any) => c.type === 'text' ? c.text : '')
+                        .join('\n');
+                } else {
+                    content = JSON.stringify(parsed, null, 2);
+                }
+
+                return content.replace(/\uFFFD/g, '=');
+            } catch (e2) {
+                return response.replace(/\uFFFD/g, '=');
+            }
+        }
+    }, [response, toolName]);
+
+    const segments = useMemo(() => {
+        if (!formattedResponse) return [];
+
+        const matches = [...formattedResponse.matchAll(/\[censor\]([\s\S]*?)\[\/censor\]/gi)];
+        if (matches.length === 0) return [{ type: 'text', value: formattedResponse }];
+
+        const parts: Array<{ type: 'text' | 'censor'; value: string }> = [];
+        let lastIndex = 0;
+
+        matches.forEach((match) => {
+            const matchText = match[0];
+            const spoilerContent = match[1];
+            const startIndex = match.index ?? 0;
+
+            if (startIndex > lastIndex) {
+                parts.push({ type: 'text', value: formattedResponse.slice(lastIndex, startIndex) });
+            }
+
+            parts.push({ type: 'censor', value: spoilerContent });
+            lastIndex = startIndex + matchText.length;
+        });
+
+        if (lastIndex < formattedResponse.length) {
+            parts.push({ type: 'text', value: formattedResponse.slice(lastIndex) });
+        }
+
+        return parts.filter(part => part.value.trim() !== '' || part.type === 'censor');
+    }, [formattedResponse]);
+
+    const renderMarkdown = useCallback(
+        (content: string) => (
+            <ReactMarkdown
+                remarkPlugins={remarkPlugins}
+                rehypePlugins={rehypePlugins}
+            >
+                {content}
+            </ReactMarkdown>
+        ),
+        [remarkPlugins, rehypePlugins]
+    );
 
     const statusColors = {
         pending: 'text-terminal-amber',
@@ -95,37 +167,23 @@ export const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
                                 </span>
                             </div>
                             {showResponse && (
-                                <div className="ml-4 mt-2 markdown-content prose prose-invert prose-sm max-w-none">
-                                    <ReactMarkdown
-                                        remarkPlugins={[remarkGfm]}
-                                        rehypePlugins={[rehypeHighlight]}
-                                    >
-                                        {(() => {
-                                            try {
-                                                // Use the beautiful formatter
-                                                const formatted = formatToolResponse(toolName, response);
-                                                return formatted;
-                                            } catch (e) {
-                                                // Fallback to original parsing
-                                                try {
-                                                    const parsed = JSON.parse(response);
-                                                    let content = '';
-                                                    
-                                                    if (parsed.content && Array.isArray(parsed.content)) {
-                                                        content = parsed.content
-                                                            .map((c: any) => c.type === 'text' ? c.text : '')
-                                                            .join('\n');
-                                                    } else {
-                                                        content = JSON.stringify(parsed, null, 2);
-                                                    }
-
-                                                    return content.replace(/\uFFFD/g, '=');
-                                                } catch (e2) {
-                                                    return response.replace(/\uFFFD/g, '=');
-                                                }
-                                            }
-                                        })()}
-                                    </ReactMarkdown>
+                                <div className="ml-4 mt-2 space-y-3">
+                                    {segments.map((segment, index) =>
+                                        segment.type === 'censor' ? (
+                                            <CensorBlock
+                                                key={`censor-${index}`}
+                                                content={segment.value}
+                                                renderMarkdown={renderMarkdown}
+                                            />
+                                        ) : (
+                                            <div
+                                                key={`md-${index}`}
+                                                className="markdown-content prose prose-invert prose-sm max-w-none"
+                                            >
+                                                {renderMarkdown(segment.value)}
+                                            </div>
+                                        )
+                                    )}
                                 </div>
                             )}
                         </div>

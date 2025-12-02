@@ -187,6 +187,18 @@ Edit `src/utils/toolResponseFormatter.ts` → `guessItemName()` function
 Tool Call → MCP Response → formatToolResponse() → Beautiful Markdown → ReactMarkdown
 ```
 
+### Spoiler Censor Tag
+
+- Wrap spoiler content with `[censor] ... [/censor]` in tool responses or LLM output
+- UI renders a "Spoiler (LLM tagged)" box with a Reveal/Hide toggle
+- Markdown inside the censor block is preserved and rendered after reveal
+
+**Example:**
+```markdown
+Treasure map notes:
+[censor]Coordinates to the vault and trap DCs.[/censor]
+```
+
 ### File Structure
 
 ```

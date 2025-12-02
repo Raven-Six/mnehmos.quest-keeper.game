@@ -2,7 +2,15 @@ import React from 'react';
 import { useGameStateStore } from '../../stores/gameStateStore';
 
 export const CharacterSheetView: React.FC = () => {
-  const { activeCharacter } = useGameStateStore();
+  const activeCharacter = useGameStateStore(state => state.activeCharacter);
+  const activeCharacterId = useGameStateStore(state => state.activeCharacterId);
+  const inventory = useGameStateStore(state => state.inventory);
+  const syncState = useGameStateStore(state => state.syncState);
+
+  React.useEffect(() => {
+    // Refresh character data when view mounts or when the active character changes.
+    syncState(true);
+  }, [activeCharacterId, syncState]);
 
   if (!activeCharacter) {
     return (
@@ -16,6 +24,9 @@ export const CharacterSheetView: React.FC = () => {
   }
 
   const { name, level, class: charClass, hp, xp, stats } = activeCharacter;
+
+  const equippedItems = inventory.filter((i) => i.equipped);
+  const stowedItems = inventory.filter((i) => !i.equipped);
 
   // Helper to calculate modifier
   const getMod = (score: number) => {
@@ -78,7 +89,7 @@ export const CharacterSheetView: React.FC = () => {
         <StatBlock label="CHA" value={stats.cha} />
       </div>
 
-      {/* Secondary Stats (Placeholder for now as we don't parse them yet) */}
+      {/* Secondary Stats + Equipment */}
       <div className="grid grid-cols-2 gap-6">
         <div className="border border-terminal-green/30 p-4">
           <h3 className="text-lg font-bold border-b border-terminal-green/30 pb-2 mb-4">COMBAT</h3>
@@ -99,6 +110,14 @@ export const CharacterSheetView: React.FC = () => {
               <span className="text-terminal-green/60">PROFICIENCY</span>
               <span>+{Math.floor((level - 1) / 4) + 2}</span>
             </div>
+          </div>
+          <div className="mt-4">
+            <button
+              onClick={() => syncState(true)}
+              className="text-xs border border-terminal-green px-2 py-1 text-terminal-green hover:bg-terminal-green/10 transition-colors"
+            >
+              Refresh from MCP
+            </button>
           </div>
         </div>
 
@@ -121,8 +140,43 @@ export const CharacterSheetView: React.FC = () => {
                 <div className="text-lg text-terminal-green/40">None</div>
               )}
             </div>
+            {equippedItems.length > 0 && (
+              <div>
+                <div className="text-xs text-terminal-green/60 uppercase tracking-wider mb-1">Equipped Items</div>
+                <ul className="list-disc list-inside space-y-1 text-terminal-green">
+                  {equippedItems.map((item) => (
+                    <li key={item.id}>
+                      <span className="font-semibold">{item.name}</span>
+                      {item.type ? <span className="text-terminal-green/60"> ({item.type})</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
+      </div>
+
+      {/* Inventory List */}
+      <div className="border border-terminal-green/30 p-4">
+        <h3 className="text-lg font-bold border-b border-terminal-green/30 pb-2 mb-4">INVENTORY</h3>
+        {inventory.length === 0 ? (
+          <div className="text-terminal-green/60">No items carried.</div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {stowedItems.map((item) => (
+              <div key={item.id} className="border border-terminal-green/20 p-2 bg-terminal-green/5">
+                <div className="font-semibold">{item.name}</div>
+                <div className="text-xs text-terminal-green/60">
+                  {item.type || 'misc'} • {item.weight ?? '?'} lbs
+                </div>
+                {item.description ? (
+                  <div className="text-xs text-terminal-green/70 mt-1 line-clamp-3">{item.description}</div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

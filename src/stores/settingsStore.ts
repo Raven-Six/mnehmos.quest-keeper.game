@@ -42,7 +42,11 @@ export const useSettingsStore = create<SettingsState>()(
                 openrouter: 'meta-llama/llama-3.2-3b-instruct:free',
             },
             selectedProvider: 'openrouter',
-            systemPrompt: 'You are a helpful RPG assistant.',
+            systemPrompt: [
+                'You are a helpful RPG assistant. Use MCP tools for any game state changes or lookups.',
+                'Do not leak GM-only information. Wrap any GM-only or spoiler content (hidden rolls, DCs, trap details, unobserved NPC intent, secret objectives, backend IDs/UUIDs) inside [censor]...[/censor] so the UI can hide it.',
+                'Only present player-facing information outside the [censor] block. Keep responses concise and mechanically accurate.'
+            ].join('\n'),
             setApiKey: (provider, key) =>
                 set((state) => ({
                     apiKeys: { ...state.apiKeys, [provider]: key },
