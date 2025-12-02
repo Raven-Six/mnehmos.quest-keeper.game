@@ -68,19 +68,25 @@ interface TooltipData {
 
 export const WorldMapCanvas: React.FC = () => {
   const activeWorldId = useGameStateStore((state) => state.activeWorldId);
+  const worlds = useGameStateStore((state) => state.worlds);
   const [tileData, setTileData] = useState<TileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingTime, setLoadingTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const loadingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const TILE_SIZE = 10; // Base tile size in pixels
+
+  // Get active world info for display
+  const activeWorld = worlds.find(w => w.id === activeWorldId);
 
   // Fetch tile data from MCP
   const fetchTileData = useCallback(async () => {
@@ -92,29 +98,58 @@ export const WorldMapCanvas: React.FC = () => {
 
     setLoading(true);
     setError(null);
+    setLoadingTime(0);
+
+    // Start loading timer
+    const startTime = Date.now();
+    loadingTimerRef.current = setInterval(() => {
+      setLoadingTime(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
 
     try {
       if (!mcpManager.gameStateClient.isConnected()) {
         throw new Error('MCP client not available');
       }
 
+      console.log('[WorldMapCanvas] Fetching tiles for world:', activeWorldId);
       const result = await mcpManager.gameStateClient.callTool('get_world_tiles', { worldId: activeWorldId });
 
       // Parse the response
       const content = result.content?.[0];
       if (content?.type === 'text') {
         const data = JSON.parse(content.text);
+        console.log('[WorldMapCanvas] Received tile data:', data.width, 'x', data.height);
         setTileData(data);
       } else {
         throw new Error('Invalid response format');
       }
     } catch (err) {
       console.error('[WorldMapCanvas] Failed to fetch tiles:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load map');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load map';
+      
+      // Provide more helpful error messages
+      if (errorMsg.includes('timed out')) {
+        setError('World generation timed out. Large worlds with complex terrain (lakes, rivers) may take longer to generate. Try again or select a smaller world.');
+      } else {
+        setError(errorMsg);
+      }
     } finally {
       setLoading(false);
+      if (loadingTimerRef.current) {
+        clearInterval(loadingTimerRef.current);
+        loadingTimerRef.current = null;
+      }
     }
   }, [activeWorldId]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (loadingTimerRef.current) {
+        clearInterval(loadingTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     fetchTileData();
@@ -275,9 +310,36 @@ export const WorldMapCanvas: React.FC = () => {
   if (loading) {
     return (
       <div className="h-full w-full flex items-center justify-center font-mono text-terminal-green">
-        <div className="text-center">
-          <div className="text-xl mb-2 animate-pulse">{'🌍'} Loading World Map...</div>
-          <div className="text-sm text-terminal-green/60">Fetching tile data</div>
+        <div className="text-center max-w-md">
+          <div className="text-4xl mb-4 animate-pulse">{'🌍'}</div>
+          <div className="text-xl mb-2">Generating World Map...</div>
+          {activeWorld && (
+            <div className="text-sm text-terminal-green/70 mb-4">
+              {activeWorld.name} ({activeWorld.width}×{activeWorld.height} tiles)
+            </div>
+          )}
+          <div className="text-lg text-terminal-green-bright mb-2">
+            {loadingTime}s elapsed
+          </div>
+          <div className="text-xs text-terminal-green/50 space-y-1">
+            <p>Generating terrain, rivers, and lakes...</p>
+            {loadingTime > 10 && (
+              <p className="text-yellow-500/70">Large worlds with complex hydrology may take 30-60 seconds</p>
+            )}
+            {loadingTime > 30 && (
+              <p className="text-orange-500/70">Still working... The lake/river algorithms are computationally intensive</p>
+            )}
+          </div>
+          {/* Progress bar animation */}
+          <div className="mt-4 w-64 mx-auto h-2 bg-terminal-green/20 rounded overflow-hidden">
+            <div 
+              className="h-full bg-terminal-green animate-pulse"
+              style={{ 
+                width: `${Math.min(95, loadingTime * 1.5)}%`,
+                transition: 'width 1s ease-out'
+              }}
+            />
+          </div>
         </div>
       </div>
     );
@@ -286,13 +348,15 @@ export const WorldMapCanvas: React.FC = () => {
   if (error) {
     return (
       <div className="h-full w-full flex items-center justify-center font-mono text-terminal-green">
-        <div className="text-center">
-          <div className="text-xl mb-4 text-red-500">{'⚠️'} {error}</div>
+        <div className="text-center max-w-md">
+          <div className="text-4xl mb-4">{'⚠️'}</div>
+          <div className="text-xl mb-4 text-red-500">Map Loading Failed</div>
+          <div className="text-sm text-terminal-green/70 mb-4 whitespace-pre-wrap">{error}</div>
           <button
             onClick={fetchTileData}
-            className="px-4 py-2 bg-terminal-green text-terminal-black font-bold uppercase"
+            className="px-4 py-2 bg-terminal-green text-terminal-black font-bold uppercase hover:bg-terminal-green-bright transition-colors"
           >
-            Retry
+            {'🔄'} Try Again
           </button>
         </div>
       </div>

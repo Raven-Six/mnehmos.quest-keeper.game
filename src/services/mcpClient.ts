@@ -27,13 +27,22 @@ const TIMEOUTS = {
     complex: 60000      // 60s for complex operations
 };
 
-// Operations that may take longer
+// Operations that may take longer (world gen/restore, batch ops)
 const COMPLEX_OPERATIONS = new Set([
+    // World operations - can trigger full regeneration from seed
     'generate_world',
     'create_world',
+    'get_world_tiles',      // Large response + may trigger world restore
+    'get_world_state',      // May trigger world restore  
+    'get_world_map_overview', // May trigger world restore
+    'get_region_map',       // May trigger world restore
+    // Strategy operations
     'resolve_turn',
+    // Batch operations
     'batch_create_npcs',
-    'batch_update_npcs'
+    'batch_update_npcs',
+    'batch_create_characters',
+    'batch_distribute_items'
 ]);
 
 export class McpClient {
@@ -151,7 +160,10 @@ export class McpClient {
     private getTimeout(method: string, toolName?: string): number {
         if (method === 'initialize') return TIMEOUTS.initialize;
         if (method === 'tools/list') return TIMEOUTS.listTools;
-        if (toolName && COMPLEX_OPERATIONS.has(toolName)) return TIMEOUTS.complex;
+        if (toolName && COMPLEX_OPERATIONS.has(toolName)) {
+            console.log(`[McpClient] Using extended timeout (60s) for ${toolName}`);
+            return TIMEOUTS.complex;
+        }
         return TIMEOUTS.default;
     }
 
