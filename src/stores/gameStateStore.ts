@@ -50,6 +50,33 @@ export interface Note {
   timestamp: number;
 }
 
+export interface QuestObjective {
+  id: string;
+  description: string;
+  type?: string;
+  target?: string;
+  current: number;
+  required: number;
+  completed: boolean;
+  progress?: string;
+}
+
+export interface Quest {
+  id: string;
+  title: string;
+  name: string;
+  description: string;
+  status: 'active' | 'completed' | 'failed';
+  questGiver?: string;
+  objectives: QuestObjective[];
+  rewards: {
+    experience?: number;
+    gold?: number;
+    items?: string[];
+  };
+  prerequisites?: string[];
+}
+
 export interface CharacterStats {
   id?: string;
   name: string;
@@ -76,6 +103,7 @@ interface GameState {
   inventory: InventoryItem[];
   world: WorldState;
   notes: Note[];
+  quests: Quest[];
   activeCharacter: CharacterStats | null;
   party: CharacterStats[];
   isSyncing: boolean;
@@ -84,6 +112,7 @@ interface GameState {
   setInventory: (items: InventoryItem[]) => void;
   setWorldState: (state: WorldState) => void;
   setNotes: (notes: Note[]) => void;
+  setQuests: (quests: Quest[]) => void;
   addNote: (note: Note) => void;
   updateNote: (id: string, content: string) => void;
   deleteNote: (id: string) => void;
@@ -168,41 +197,119 @@ function parseInventoryFromJson(inventoryData: any): InventoryItem[] {
 }
 
 /**
- * Parse quest data from rpg-mcp response into notes
+ * Parse quest data from rpg-mcp response
+ * Handles both new full quest format and legacy UUID-only format
  */
-function parseQuestsToNotes(questData: any): Note[] {
-  const notes: Note[] = [];
+function parseQuestsFromResponse(questData: any): Quest[] {
+  const quests: Quest[] = [];
 
-  if (!questData) return notes;
+  if (!questData) return quests;
 
-  // Handle activeQuests array
-  const activeQuests = questData.activeQuests || questData.quests || [];
+  // New format: quests array with full data
+  const questList = questData.quests || [];
   
-  if (Array.isArray(activeQuests)) {
-    activeQuests.forEach((quest: any, index: number) => {
+  if (Array.isArray(questList)) {
+    questList.forEach((quest: any, index: number) => {
       if (typeof quest === 'string') {
-        // Just a quest ID/name
-        notes.push({
-          id: `quest-${quest}`,
-          title: `Quest: ${quest}`,
-          content: `Active quest: ${quest}`,
-          author: 'ai',
-          timestamp: Date.now()
+        // Legacy format - just a quest ID (shouldn't happen with new backend)
+        quests.push({
+          id: quest,
+          title: `Quest ${quest.slice(0, 8)}...`,
+          name: `Quest ${quest.slice(0, 8)}...`,
+          description: 'Quest details unavailable',
+          status: 'active',
+          objectives: [],
+          rewards: {}
         });
       } else if (quest && typeof quest === 'object') {
-        // Full quest object
-        notes.push({
-          id: `quest-${quest.id || index}`,
-          title: quest.name || quest.title || 'Quest',
-          content: `${quest.description || ''}\n\nStatus: ${quest.status || 'Active'}`,
-          author: 'ai',
-          timestamp: Date.now()
+        // New format - full quest object
+        const objectives: QuestObjective[] = (quest.objectives || []).map((obj: any) => ({
+          id: obj.id || `obj-${index}`,
+          description: obj.description || 'Unknown objective',
+          type: obj.type,
+          target: obj.target,
+          current: obj.current || 0,
+          required: obj.required || 1,
+          completed: obj.completed || false,
+          progress: obj.progress || `${obj.current || 0}/${obj.required || 1}`
+        }));
+
+        quests.push({
+          id: quest.id || `quest-${index}`,
+          title: quest.title || quest.name || 'Untitled Quest',
+          name: quest.name || quest.title || 'Untitled Quest',
+          description: quest.description || '',
+          status: quest.status || 'active',
+          questGiver: quest.questGiver || quest.giver,
+          objectives,
+          rewards: {
+            experience: quest.rewards?.experience || 0,
+            gold: quest.rewards?.gold || 0,
+            items: quest.rewards?.items || []
+          },
+          prerequisites: quest.prerequisites || []
         });
       }
     });
   }
 
-  return notes;
+  // Also check for legacy activeQuests/completedQuests/failedQuests arrays
+  ['activeQuests', 'completedQuests', 'failedQuests'].forEach(key => {
+    const status = key === 'activeQuests' ? 'active' : key === 'completedQuests' ? 'completed' : 'failed';
+    const legacyList = questData[key];
+    
+    if (Array.isArray(legacyList)) {
+      legacyList.forEach((questId: string) => {
+        // Only add if not already in quests array
+        if (!quests.find(q => q.id === questId)) {
+          quests.push({
+            id: questId,
+            title: `Quest ${questId.slice(0, 8)}...`,
+            name: `Quest ${questId.slice(0, 8)}...`,
+            description: 'Quest details unavailable (legacy format)',
+            status: status as 'active' | 'completed' | 'failed',
+            objectives: [],
+            rewards: {}
+          });
+        }
+      });
+    }
+  });
+
+  return quests;
+}
+
+/**
+ * Convert quests to notes for backward compatibility with Notes UI
+ */
+function questsToNotes(quests: Quest[]): Note[] {
+  return quests.map(quest => {
+    // Build content with objectives
+    let content = quest.description;
+    
+    if (quest.objectives.length > 0) {
+      content += '\n\n**Objectives:**\n';
+      quest.objectives.forEach(obj => {
+        const checkbox = obj.completed ? '✓' : '○';
+        content += `${checkbox} ${obj.description} (${obj.progress || `${obj.current}/${obj.required}`})\n`;
+      });
+    }
+    
+    if (quest.rewards && (quest.rewards.experience || quest.rewards.gold || (quest.rewards.items && quest.rewards.items.length > 0))) {
+      content += '\n**Rewards:**\n';
+      if (quest.rewards.experience) content += `• ${quest.rewards.experience} XP\n`;
+      if (quest.rewards.gold) content += `• ${quest.rewards.gold} gold\n`;
+      if (quest.rewards.items?.length) content += `• Items: ${quest.rewards.items.join(', ')}\n`;
+    }
+
+    return {
+      id: `quest-${quest.id}`,
+      title: `${quest.status === 'completed' ? '✅' : quest.status === 'failed' ? '❌' : '📜'} ${quest.title}`,
+      content,
+      author: 'ai' as const,
+      timestamp: Date.now()
+    };
+  });
 }
 
 export const useGameStateStore = create<GameState>((set, get) => ({
@@ -217,6 +324,7 @@ export const useGameStateStore = create<GameState>((set, get) => ({
     events: {}
   },
   notes: [],
+  quests: [],
   activeCharacter: null,
   party: [],
   isSyncing: false,
@@ -225,6 +333,7 @@ export const useGameStateStore = create<GameState>((set, get) => ({
   setInventory: (items) => set({ inventory: items }),
   setWorldState: (state) => set({ world: state }),
   setNotes: (notes) => set({ notes }),
+  setQuests: (quests) => set({ quests }),
   setActiveCharacter: (char) => set({ activeCharacter: char }),
 
   addNote: (note) => set((state) => ({
@@ -373,12 +482,16 @@ export const useGameStateStore = create<GameState>((set, get) => ({
         const questData = parseMcpResponse<any>(questResult.result, null);
         
         if (questData) {
-          const questNotes = parseQuestsToNotes(questData);
-          console.log('[GameStateStore] Parsed', questNotes.length, 'quest notes');
+          const quests = parseQuestsFromResponse(questData);
+          console.log('[GameStateStore] Parsed', quests.length, 'quests');
           
-          if (questNotes.length > 0) {
-            set({ notes: questNotes });
-          }
+          // Convert quests to notes for UI display
+          const questNotes = questsToNotes(quests);
+          
+          set({ 
+            quests,
+            notes: questNotes
+          });
         }
       } else if (questResult?.error) {
         console.warn('[GameStateStore] Quest fetch error:', questResult.error);
