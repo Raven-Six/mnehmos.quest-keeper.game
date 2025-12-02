@@ -33,6 +33,16 @@ interface Item {
     description?: string;
     value?: number;
     weight?: number;
+    properties?: Record<string, any>;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+interface DetailedInventoryItem {
+    item: Item;
+    quantity: number;
+    equipped: boolean;
+    slot?: string;
 }
 
 /**
@@ -247,6 +257,215 @@ export function formatEncounter(data: any): string {
 }
 
 /**
+ * Format a single item into detailed markdown
+ */
+export function formatItem(data: any): string {
+    const item: Item = data.item || data;
+
+    if (!item || !item.name) {
+        return '> Item not found.';
+    }
+
+    const icon = getItemIcon(item.type);
+    let markdown = `## ${icon} ${item.name}\n\n`;
+
+    markdown += `| Property | Value |\n`;
+    markdown += `|----------|-------|\n`;
+    markdown += `| **Type** | ${item.type} |\n`;
+    if (item.value !== undefined) markdown += `| **Value** | ${item.value} gold |\n`;
+    if (item.weight !== undefined) markdown += `| **Weight** | ${item.weight} lbs |\n`;
+    markdown += `\n`;
+
+    if (item.description) {
+        markdown += `### 📖 Description\n\n`;
+        markdown += `> ${item.description}\n\n`;
+    }
+
+    if (item.properties && Object.keys(item.properties).length > 0) {
+        markdown += `### ✨ Properties\n\n`;
+        for (const [key, value] of Object.entries(item.properties)) {
+            const formattedValue = typeof value === 'object' ? JSON.stringify(value) : value;
+            markdown += `- **${key}:** ${formattedValue}\n`;
+        }
+        markdown += `\n`;
+    }
+
+    markdown += `---\n\n`;
+    markdown += `*ID: \`${item.id}\`*\n`;
+
+    return markdown;
+}
+
+/**
+ * Format a list of items into markdown
+ */
+export function formatItemList(data: any): string {
+    const items: Item[] = data.items || [];
+    const count = data.count ?? items.length;
+    const query = data.query;
+
+    if (items.length === 0) {
+        return '> No items found.';
+    }
+
+    let markdown = `## 📦 Items (${count})\n\n`;
+
+    if (query && Object.keys(query).length > 0) {
+        const filters = Object.entries(query)
+            .filter(([_, v]) => v !== undefined)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(', ');
+        if (filters) {
+            markdown += `*Filtered by: ${filters}*\n\n`;
+        }
+    }
+
+    // Group by type
+    const byType: Record<string, Item[]> = {};
+    items.forEach(item => {
+        const type = item.type || 'misc';
+        if (!byType[type]) byType[type] = [];
+        byType[type].push(item);
+    });
+
+    const typeOrder = ['weapon', 'armor', 'consumable', 'quest', 'misc'];
+    const sortedTypes = Object.keys(byType).sort((a, b) => {
+        const aIdx = typeOrder.indexOf(a);
+        const bIdx = typeOrder.indexOf(b);
+        return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
+    });
+
+    sortedTypes.forEach(type => {
+        const typeItems = byType[type];
+        const icon = getItemIcon(type);
+        markdown += `### ${icon} ${type.charAt(0).toUpperCase() + type.slice(1)}s (${typeItems.length})\n\n`;
+
+        typeItems.forEach(item => {
+            markdown += `- **${item.name}**`;
+            if (item.value !== undefined) markdown += ` • ${item.value}g`;
+            if (item.weight !== undefined) markdown += ` • ${item.weight}lb`;
+            if (item.description) markdown += `\n  > *${item.description.substring(0, 80)}${item.description.length > 80 ? '...' : ''}*`;
+            markdown += `\n`;
+        });
+        markdown += `\n`;
+    });
+
+    return markdown;
+}
+
+/**
+ * Format detailed inventory with full item info
+ */
+export function formatInventoryDetailed(data: any): string {
+    const items: DetailedInventoryItem[] = data.items || [];
+    const totalWeight = data.totalWeight || 0;
+    const capacity = data.capacity || 100;
+
+    if (items.length === 0) {
+        return '> 🎒 Inventory is empty.';
+    }
+
+    let markdown = `## 🎒 Inventory\n\n`;
+    markdown += `**Weight:** ${totalWeight.toFixed(1)} / ${capacity} lbs\n\n`;
+
+    // Group by equipped status
+    const equippedItems = items.filter(i => i.equipped);
+    const unequippedItems = items.filter(i => !i.equipped);
+
+    if (equippedItems.length > 0) {
+        markdown += `### ⚔️ Equipped\n\n`;
+        equippedItems.forEach(inv => {
+            const icon = getItemIcon(inv.item.type);
+            const slot = inv.slot ? ` [${inv.slot}]` : '';
+            markdown += `- ${icon} **${inv.item.name}**${slot}`;
+            if (inv.quantity > 1) markdown += ` ×${inv.quantity}`;
+            if (inv.item.description) markdown += `\n  > *${inv.item.description}*`;
+            markdown += `\n`;
+        });
+        markdown += `\n`;
+    }
+
+    if (unequippedItems.length > 0) {
+        // Group unequipped by type
+        const byType: Record<string, DetailedInventoryItem[]> = {};
+        unequippedItems.forEach(inv => {
+            const type = inv.item.type || 'misc';
+            if (!byType[type]) byType[type] = [];
+            byType[type].push(inv);
+        });
+
+        for (const [type, typeItems] of Object.entries(byType)) {
+            const icon = getItemIcon(type);
+            markdown += `### ${icon} ${type.charAt(0).toUpperCase() + type.slice(1)}s\n\n`;
+
+            typeItems.forEach(inv => {
+                markdown += `- **${inv.item.name}**`;
+                if (inv.quantity > 1) markdown += ` ×${inv.quantity}`;
+                if (inv.item.value) markdown += ` • ${inv.item.value}g`;
+                if (inv.item.description) markdown += `\n  > *${inv.item.description}*`;
+                markdown += `\n`;
+            });
+            markdown += `\n`;
+        }
+    }
+
+    // Currency
+    if (data.currency) {
+        const { gold = 0, silver = 0, copper = 0 } = data.currency;
+        if (gold > 0 || silver > 0 || copper > 0) {
+            markdown += `### 💰 Currency\n\n`;
+            if (gold > 0) markdown += `- 🟡 **${gold}** gold\n`;
+            if (silver > 0) markdown += `- ⚪ **${silver}** silver\n`;
+            if (copper > 0) markdown += `- 🟤 **${copper}** copper\n`;
+        }
+    }
+
+    return markdown;
+}
+
+/**
+ * Format item transfer result
+ */
+export function formatTransfer(data: any): string {
+    let markdown = `## 🔄 Item Transferred\n\n`;
+    markdown += `**${data.item || 'Item'}** ×${data.quantity || 1}\n\n`;
+    markdown += `From: \`${data.from?.substring(0, 8) || 'Unknown'}...\`\n`;
+    markdown += `To: \`${data.to?.substring(0, 8) || 'Unknown'}...\`\n\n`;
+    markdown += `> ${data.message || 'Transfer complete.'}\n`;
+    return markdown;
+}
+
+/**
+ * Format item use result
+ */
+export function formatUseItem(data: any): string {
+    let markdown = `## 🧪 Item Used\n\n`;
+
+    if (data.item) {
+        markdown += `**${data.item.name}** was consumed.\n\n`;
+        if (data.item.description) {
+            markdown += `> *${data.item.description}*\n\n`;
+        }
+    }
+
+    if (data.effect) {
+        markdown += `### ✨ Effect\n\n`;
+        if (typeof data.effect === 'object') {
+            for (const [key, value] of Object.entries(data.effect)) {
+                markdown += `- **${key}:** ${value}\n`;
+            }
+        } else {
+            markdown += `${data.effect}\n`;
+        }
+        markdown += `\n`;
+    }
+
+    markdown += `Target: \`${data.target?.substring(0, 8) || 'self'}...\`\n`;
+
+    return markdown;
+}
+
+/**
  * Auto-detect response type and format accordingly
  */
 export function formatToolResponse(toolName: string, response: any): string {
@@ -263,19 +482,46 @@ export function formatToolResponse(toolName: string, response: any): string {
         if (toolName === 'list_characters' || actualData.characters) {
             return formatCharacterList(actualData);
         }
-        
+
         if (toolName === 'get_character' && actualData.name) {
             return formatCharacter(actualData);
         }
-        
-        if (toolName === 'get_inventory' || actualData.items) {
+
+        // Item tools
+        if (toolName === 'get_item' || (actualData.item && !actualData.items)) {
+            return formatItem(actualData);
+        }
+
+        if (toolName === 'list_items' || toolName === 'search_items') {
+            return formatItemList(actualData);
+        }
+
+        if (toolName === 'transfer_item' && actualData.from && actualData.to) {
+            return formatTransfer(actualData);
+        }
+
+        if (toolName === 'use_item' && actualData.consumed) {
+            return formatUseItem(actualData);
+        }
+
+        if (toolName === 'get_inventory_detailed' && actualData.totalWeight !== undefined) {
+            return formatInventoryDetailed(actualData);
+        }
+
+        // Standard inventory (items array with itemId fields, not full item objects)
+        if (toolName === 'get_inventory' || (actualData.items && actualData.items[0]?.itemId)) {
             return formatInventory(actualData);
         }
-        
+
+        // Detailed inventory (items array with full item objects)
+        if (actualData.items && actualData.items[0]?.item) {
+            return formatInventoryDetailed(actualData);
+        }
+
         if (toolName === 'get_quest_log' || actualData.quests) {
             return formatQuestLog(actualData);
         }
-        
+
         if (toolName === 'get_encounter_state' || actualData.participants) {
             return formatEncounter(actualData);
         }
