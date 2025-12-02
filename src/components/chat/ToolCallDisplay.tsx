@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import { formatToolResponse } from '../../utils/toolResponseFormatter';
 
 interface ToolCallDisplayProps {
     toolName: string;
@@ -101,25 +102,27 @@ export const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
                                     >
                                         {(() => {
                                             try {
-                                                // Try to parse as MCP response
-                                                const parsed = JSON.parse(response);
-                                                let content = '';
-                                                
-                                                if (parsed.content && Array.isArray(parsed.content)) {
-                                                    content = parsed.content
-                                                        .map((c: any) => c.type === 'text' ? c.text : '')
-                                                        .join('\n');
-                                                } else {
-                                                    // If it's valid JSON but not MCP format, pretty print it
-                                                    content = JSON.stringify(parsed, null, 2);
-                                                }
-
-                                                // Sanitize content to fix encoding issues
-                                                // Replace the replacement character (U+FFFD) with an equals sign or arrow
-                                                return content.replace(/\uFFFD/g, '=');
+                                                // Use the beautiful formatter
+                                                const formatted = formatToolResponse(toolName, response);
+                                                return formatted;
                                             } catch (e) {
-                                                // Fallback to raw string if not JSON
-                                                return response.replace(/\uFFFD/g, '=');
+                                                // Fallback to original parsing
+                                                try {
+                                                    const parsed = JSON.parse(response);
+                                                    let content = '';
+                                                    
+                                                    if (parsed.content && Array.isArray(parsed.content)) {
+                                                        content = parsed.content
+                                                            .map((c: any) => c.type === 'text' ? c.text : '')
+                                                            .join('\n');
+                                                    } else {
+                                                        content = JSON.stringify(parsed, null, 2);
+                                                    }
+
+                                                    return content.replace(/\uFFFD/g, '=');
+                                                } catch (e2) {
+                                                    return response.replace(/\uFFFD/g, '=');
+                                                }
                                             }
                                         })()}
                                     </ReactMarkdown>
