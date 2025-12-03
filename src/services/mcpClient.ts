@@ -24,7 +24,7 @@ const TIMEOUTS = {
     default: 30000,     // 30s for most operations
     initialize: 10000,  // 10s for init
     listTools: 10000,   // 10s for listing
-    complex: 60000      // 60s for complex operations
+    complex: 120000     // 120s for complex operations (increased for large world tiles)
 };
 
 // Operations that may take longer (world gen/restore, batch ops)
@@ -124,36 +124,44 @@ export class McpClient {
     }
 
     private handleOutput(line: string) {
-        // Handle potential message fragmentation
+        // Accumulate data in buffer - messages are newline-delimited
         this.messageBuffer += line;
         
-        // Try to parse complete JSON messages
-        const lines = this.messageBuffer.split('\n');
-        this.messageBuffer = '';
+        // Try to extract and parse complete JSON-RPC messages
+        let newlineIndex = this.messageBuffer.indexOf('\n');
         
-        for (const jsonLine of lines) {
-            if (!jsonLine.trim()) continue;
+        while (newlineIndex !== -1) {
+            // Extract the complete message up to the newline
+            const jsonLine = this.messageBuffer.substring(0, newlineIndex).trim();
+            // Keep the rest in the buffer
+            this.messageBuffer = this.messageBuffer.substring(newlineIndex + 1);
             
-            try {
-                const response = JSON.parse(jsonLine) as JsonRpcResponse;
-                
-                if (response.id && this.pendingRequests.has(response.id)) {
-                    const pending = this.pendingRequests.get(response.id)!;
-                    clearTimeout(pending.timeout);
+            if (jsonLine) {
+                try {
+                    const response = JSON.parse(jsonLine) as JsonRpcResponse;
                     
-                    const duration = Date.now() - pending.startTime;
-                    if (duration > 5000) {
-                        console.log(`[McpClient] Slow response for ${response.id}: ${duration}ms`);
+                    if (response.id && this.pendingRequests.has(response.id)) {
+                        const pending = this.pendingRequests.get(response.id)!;
+                        clearTimeout(pending.timeout);
+                        
+                        const duration = Date.now() - pending.startTime;
+                        if (duration > 5000) {
+                            const sizeKB = Math.round(jsonLine.length / 1024);
+                            console.log(`[McpClient] Slow response for ${response.id}: ${duration}ms (${sizeKB}KB)`);
+                        }
+                        
+                        pending.resolve(response);
+                        this.pendingRequests.delete(response.id);
                     }
-                    
-                    pending.resolve(response);
-                    this.pendingRequests.delete(response.id);
+                    // Silently ignore responses for already-timed-out requests
+                } catch (e) {
+                    console.warn('[McpClient] Failed to parse JSON-RPC message:', e);
+                    console.warn('[McpClient] Invalid JSON (first 500 chars):', jsonLine.substring(0, 500));
                 }
-                // Silently ignore responses for already-timed-out requests
-            } catch (e) {
-                // Not valid JSON, might be incomplete - buffer it
-                this.messageBuffer = jsonLine;
             }
+            
+            // Look for the next complete message
+            newlineIndex = this.messageBuffer.indexOf('\n');
         }
     }
 
@@ -161,7 +169,7 @@ export class McpClient {
         if (method === 'initialize') return TIMEOUTS.initialize;
         if (method === 'tools/list') return TIMEOUTS.listTools;
         if (toolName && COMPLEX_OPERATIONS.has(toolName)) {
-            console.log(`[McpClient] Using extended timeout (60s) for ${toolName}`);
+            console.log(`[McpClient] Using extended timeout (120s) for ${toolName}`);
             return TIMEOUTS.complex;
         }
         return TIMEOUTS.default;
@@ -188,7 +196,8 @@ export class McpClient {
                 if (this.pendingRequests.has(id)) {
                     this.pendingRequests.delete(id);
                     console.warn(`[McpClient] Request timed out: ${method} ${toolName || ''} (${timeoutMs}ms)`);
-                    reject(new Error(`Request ${method} timed out`));
+                    console.warn(`[McpClient] Buffer size at timeout: ${this.messageBuffer.length} bytes`);
+                    reject(new Error(`Request ${method} timed out after ${timeoutMs}ms`));
                 }
             }, timeoutMs);
 
