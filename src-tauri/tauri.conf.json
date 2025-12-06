@@ -28,7 +28,8 @@
       "binaries/rpg-mcp-server"
     ],
     "resources": [
-      "binaries/better_sqlite3.node"
+      "binaries/better_sqlite3.node",
+      "binaries/rpg.db"
     ],
     "icon": [
       "icons/32x32.png",

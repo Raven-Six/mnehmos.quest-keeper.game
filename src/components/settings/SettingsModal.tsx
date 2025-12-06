@@ -2,6 +2,7 @@ import React from 'react';
 import { useSettingsStore, LLMProvider } from '../../stores/settingsStore';
 import { open } from '@tauri-apps/plugin-shell';
 import { appLogDir } from '@tauri-apps/api/path';
+import { mkdir } from '@tauri-apps/plugin-fs';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -23,7 +24,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const handleOpenLogs = async () => {
         try {
             const logDir = await appLogDir();
-            console.log('[Settings] Opening log dir:', logDir);
+            console.log('[Settings] Log dir path:', logDir);
+            
+            // Ensure directory exists first
+            try {
+                await mkdir(logDir, { recursive: true });
+            } catch (e) {
+                // Ignore if exists, or log warning
+                console.warn('[Settings] Failed to create log dir (might exist):', e);
+            }
+
+            console.log('[Settings] Opening log dir...');
             await open(logDir);
         } catch (error) {
             console.error('[Settings] Failed to open log dir:', error);
