@@ -12,6 +12,7 @@ export interface Message {
   type?: MessageType;
   metadata?: Record<string, any>;
   partial?: boolean; // Flag for streaming messages
+  isEvent?: boolean; // Flag for autonomous system events
 
   // Tool call fields
   isToolCall?: boolean;

@@ -8,7 +8,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 
 interface CharacterCreationModalProps {
     isOpen: boolean;
-    onClose: () => void;
+    onClose: (newCharacterId?: string) => void;
 }
 
 // D&D 5e Race data
@@ -576,7 +576,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
             }
             
             resetForm();
-            onClose();
+            onClose(newCharacterId);
         } catch (err) {
             console.error('[CharacterCreation] Error:', err);
             setError((err as Error).message);

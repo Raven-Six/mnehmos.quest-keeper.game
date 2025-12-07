@@ -26,10 +26,10 @@ You're about to embark on an epic adventure with your personal AI **Dungeon Mast
 | Action | How |
 |--------|-----|
 | Send message | **Enter** |
-| New line | **Shift + Enter** |
 | New chat | Click **+** in sidebar |
 | View character | **Character** tab |
 | Explore map | Click **3D Viewport** |
+| Start Adventure | Type **/start** |
 
 ---
 
@@ -72,11 +72,11 @@ You're about to embark on an epic adventure with your personal AI **Dungeon Mast
 
 ## 🚀 Ready?
 
-Just type something like:
+To begin your adventure, create your character:
 
-> "I introduce myself to the group and ask where we're headed."
+> **Type \`/start\` and press Enter**
 
-*Your adventure begins now. What do you do?*
+*Your journey awaits. Will you be a hero... or a legend?*
 `;
 
 /**

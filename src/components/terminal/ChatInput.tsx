@@ -683,6 +683,25 @@ async function handleSlashCommand(command: string, args: string): Promise<Comman
       return { content: `Switched to **${tab}** tab`, type: 'success' };
     }
 
+    // === SYSTEM SETUP ===
+    case 'start': {
+      return new Promise<CommandResult>((resolve) => {
+        uiStore.openCharacterModal((characterId) => {
+          if (characterId) {
+             console.log('[ChatInput] Character created:', characterId);
+             useChatStore.getState().addMessage({
+                id: Date.now().toString(),
+                sender: 'system',
+                content: `**Character Created!**\n\nThe adventure awaits. Tell the Dungeon Master what you want to do!`,
+                timestamp: Date.now(),
+                type: 'success'
+             });
+          }
+        });
+        resolve({ content: `**Character Creation Started**\n\nCreate your hero to begin your adventure!`, type: 'info' });
+      });
+    }
+
     default:
       return null; // Not a recognized command
   }
