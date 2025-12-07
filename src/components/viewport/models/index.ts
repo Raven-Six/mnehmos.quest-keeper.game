@@ -3,3 +3,4 @@
  */
 export { ProceduralCreature, type CreatureArchetype, type CreatureSize } from './ProceduralCreature';
 export { ProceduralProp, type PropType } from './ProceduralProps';
+export { ConnectedWater } from './ConnectedWater';

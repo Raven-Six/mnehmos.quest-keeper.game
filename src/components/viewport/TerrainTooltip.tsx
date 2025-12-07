@@ -7,7 +7,10 @@ interface TerrainTooltipProps {
 }
 
 export const TerrainTooltip: React.FC<TerrainTooltipProps> = ({ feature }) => {
-  const { type, dimensions, blocksMovement, coverType } = feature;
+  const { type, dimensions, blocksMovement, coverType, label, description } = feature;
+  
+  // Use label for named props (landmarks), fallback to type
+  const displayName = label || type;
 
   return (
     <Html
@@ -22,7 +25,8 @@ export const TerrainTooltip: React.FC<TerrainTooltipProps> = ({ feature }) => {
       <div className="bg-terminal-black/90 border border-yellow-500 text-yellow-300 font-mono text-xs p-2 rounded shadow-[0_0_10px_rgba(255,200,0,0.3)] min-w-[150px]">
         {/* Header */}
         <div className="border-b border-yellow-500/50 pb-1 mb-2">
-          <div className="font-bold text-sm text-glow uppercase">{type}</div>
+          <div className="font-bold text-sm text-glow uppercase">{displayName}</div>
+          {label && <div className="text-[10px] text-yellow-300/60 capitalize">{type}</div>}
         </div>
 
         {/* Properties Grid */}

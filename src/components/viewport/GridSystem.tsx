@@ -59,53 +59,9 @@ export const GridSystem: React.FC = () => {
   // Helper to convert MCP coord to visualizer coord  
   const toViz = (mcpCoord: number) => mcpCoord - 10;
   
-  // CENTER AXIS LABELS (X-axis at z=centerZ, horizontal)
-  for (let mcpX = bounds.minX; mcpX <= bounds.maxX; mcpX += labelInterval) {
-    const vizX = toViz(mcpX);
-    labels.push(
-      <Html
-        key={`center-x-${mcpX}`}
-        position={[vizX, 0.15, toViz(bounds.centerZ)]}
-        center
-        style={{
-          color: '#00ff41',
-          fontSize: '12px',
-          fontFamily: 'monospace',
-          fontWeight: 'bold',
-          pointerEvents: 'none',
-          userSelect: 'none',
-          opacity: 0.9,
-          textShadow: '0 0 2px #00ff41',
-        }}
-      >
-        {mcpX}
-      </Html>
-    );
-  }
-
-  // CENTER AXIS LABELS (Z-axis at x=centerX, vertical)
-  for (let mcpZ = bounds.minZ; mcpZ <= bounds.maxZ; mcpZ += labelInterval) {
-    const vizZ = toViz(mcpZ);
-    labels.push(
-      <Html
-        key={`center-z-${mcpZ}`}
-        position={[toViz(bounds.centerX), 0.15, vizZ]}
-        center
-        style={{
-          color: '#00ff41',
-          fontSize: '12px',
-          fontFamily: 'monospace',
-          fontWeight: 'bold',
-          pointerEvents: 'none',
-          userSelect: 'none',
-          opacity: 0.9,
-          textShadow: '0 0 2px #00ff41',
-        }}
-      >
-        {mcpZ}
-      </Html>
-    );
-  }
+  // REMOVED: Numbered axis labels per user request
+  // The grid lines themselves provide visual reference
+  // Compass rose provides orientation
 
   const measureMode = useCombatStore((state) => state.measureMode);
   const measureStart = useCombatStore((state) => state.measureStart);
@@ -176,11 +132,6 @@ export const GridSystem: React.FC = () => {
       <gridHelper args={[gridSize, divisions, '#00ff41', '#1a1a1a']} />
       
       {labels}
-      
-      {/* Origin label showing MCP (0,0) */}
-      <Html position={[-10, 0.2, -10]} center style={{ color: '#00ff41', fontSize: '14px', fontFamily: 'monospace', pointerEvents: 'none', userSelect: 'none', opacity: 0.7, fontWeight: 'bold', textShadow: '0 0 3px #00ff41' }}>
-        0,0
-      </Html>
       
       {/* Compass Rose */}
       <group position={[toViz(bounds.maxX - 5), 0.2, toViz(bounds.minZ + 5)]}>

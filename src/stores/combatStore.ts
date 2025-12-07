@@ -36,6 +36,7 @@ export interface Entity {
   color: string;
   model?: string;
   archetype?: 'humanoid' | 'quadruped' | 'beast' | 'serpent' | 'avian' | 'arachnid' | 'amorphous';
+  modelTag?: string;  // Specific model identifier (e.g., 'knight', 'dragon', 'goblin')
   metadata: EntityMetadata;
   isCurrentTurn?: boolean;
 }
@@ -53,6 +54,9 @@ export interface TerrainFeature {
   blocksMovement: boolean;
   coverType?: 'half' | 'three-quarters' | 'full' | 'none';
   color: string;
+  // Named props (landmarks, buildings, etc.)
+  label?: string;       // Display name (e.g., "Grand Atrium")
+  description?: string; // Descriptive text
   // 2.5D layer support (Foundry VTT style)
   elevation?: number;  // Base elevation (0 = ground, 1 = first floor, -1 = basement)
   layer?: number;      // Visual layer for rendering order
@@ -499,7 +503,9 @@ function stateJsonToTerrain(data: EncounterStateJson): TerrainFeature[] {
       elevation: 0,
       layer: 2,  // Props render above other terrain
       opacity: 1,
-      // Store extra prop data for tooltips
+      // Named prop data for tooltips
+      label: prop.label,
+      description: prop.description,
     } as TerrainFeature);
   });
   

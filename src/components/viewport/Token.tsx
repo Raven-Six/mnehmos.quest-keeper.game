@@ -3,7 +3,7 @@ import { ThreeEvent } from '@react-three/fiber';
 import { Edges } from '@react-three/drei';
 import { Mesh } from 'three';
 import { Entity, useCombatStore } from '../../stores/combatStore';
-import { calculateGridPosition, CREATURE_SIZE_MAP } from '../../utils/gridHelpers';
+import { calculateGridPosition, CREATURE_SIZE_MAP, getElevationAt } from '../../utils/gridHelpers';
 import { EntityTooltip } from './EntityTooltip';
 import { ProceduralCreature, CreatureArchetype } from './models';
 
@@ -100,13 +100,27 @@ export const Token: React.FC<TokenProps> = ({ entity, isSelected }) => {
   };
 
   // Calculate position based on grid snapping rules
-  const position = calculateGridPosition(entity.position.x, entity.position.z, entity.size, entity.position.y);
+  // For procedural models, we pass y=0 since they have feet at ground level
+  // For fallback cylinders, use the default STANDARD_HEIGHT/2 centering
+  const useProceduralModel = true; // Set to false to revert to cylinders
+  
+  // Get terrain elevation at this entity's grid position
+  // This handles standing on difficult terrain, obstacles, etc.
+  const terrain = useCombatStore((state) => state.terrain);
+  const entities = useCombatStore((state) => state.entities);
+  const mcpX = Math.floor(entity.position.x) + 10;
+  const mcpZ = Math.floor(entity.position.z) + 10;
+  
+  // Calculate surface height at this position (terrain + stacked entities)
+  const surfaceY = getElevationAt(mcpX, mcpZ, terrain, entities, { ignoreEntityIds: [entity.id] });
+  
+  // Procedural models have feet at y=0, so we use the surface elevation
+  const yPosition = useProceduralModel ? surfaceY : undefined;
+  
+  const position = calculateGridPosition(entity.position.x, entity.position.z, entity.size, yPosition);
   
   // Determine archetype for model rendering
   const archetype: CreatureArchetype = entity.archetype || inferArchetype(entity.name);
-  
-  // Check if we should use procedural model (feature flag - can be toggled)
-  const useProceduralModel = true; // Set to false to revert to cylinders
   
   // Calculate dimensions based on size category for fallback/hitbox
   const units = CREATURE_SIZE_MAP[entity.size];
