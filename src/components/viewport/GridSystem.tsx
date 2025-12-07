@@ -1,10 +1,14 @@
 import React, { useMemo } from 'react';
-import { Html } from '@react-three/drei';
+import { Html, Line, Edges } from '@react-three/drei';
+import { ThreeEvent } from '@react-three/fiber';
 import { useCombatStore } from '../../stores/combatStore';
+import { isTileBlocked } from '../../utils/gridHelpers';
 
 export const GridSystem: React.FC = () => {
   const entities = useCombatStore((state) => state.entities);
   const terrain = useCombatStore((state) => state.terrain);
+  const setClickedTileCoord = useCombatStore((state) => state.setClickedTileCoord);
+  const clickedTileCoord = useCombatStore((state) => state.clickedTileCoord);
   
   // Calculate dynamic bounds from all entities and terrain
   const bounds = useMemo(() => {
@@ -102,6 +106,60 @@ export const GridSystem: React.FC = () => {
       </Html>
     );
   }
+
+  const measureMode = useCombatStore((state) => state.measureMode);
+  const measureStart = useCombatStore((state) => state.measureStart);
+  const measureEnd = useCombatStore((state) => state.measureEnd);
+  const cursorPosition = useCombatStore((state) => state.cursorPosition); // Added
+  const setMeasureStart = useCombatStore((state) => state.setMeasureStart);
+  const setMeasureEnd = useCombatStore((state) => state.setMeasureEnd);
+  const setCursorPosition = useCombatStore((state) => state.setCursorPosition);
+
+  const onPlaneClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    // Convert click point to local grid integer coordinates (roughly)
+    // Viz coord: x, z centered at 0. MCP coord = x+10, z+10
+    // Use floor to get the tile index (0..1 -> 0, -1..0 -> -1)
+    const vizX = Math.floor(e.point.x);
+    const vizZ = Math.floor(e.point.z);
+    const mcpX = vizX + 10;
+    const mcpZ = vizZ + 10;
+    
+    console.log(`[GridSystem] Clicked viz(${vizX},${vizZ}) -> MCP(${mcpX},${mcpZ}) mode=${measureMode ? 'MEASURE' : 'SELECT'}`);
+    
+    if (measureMode) {
+      // Measurement logic
+      if (!measureStart) {
+        setMeasureStart({ x: vizX, y: vizZ }); // Store VIZ coords for simpler rendering
+      } else if (!measureEnd) {
+        setMeasureEnd({ x: vizX, y: vizZ });
+      } else {
+        // Reset and start new
+        setMeasureStart({ x: vizX, y: vizZ });
+        setMeasureEnd(null);
+      }
+    } else {
+      // Selection logic
+      // Toggle: if clicking same tile, clear it. Else set it.
+      if (clickedTileCoord && clickedTileCoord.x === mcpX && clickedTileCoord.y === mcpZ) {
+        setClickedTileCoord(null);
+      } else {
+        setClickedTileCoord({ x: mcpX, y: mcpZ });
+      }
+    }
+  };
+
+  const onPointerMove = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    const vizX = Math.floor(e.point.x);
+    const vizZ = Math.floor(e.point.z);
+    
+    // Update cursor position (Viz coords)
+    // Using floor aligns to the tile
+    // Throttle via React state update nature? Zustand is fast but let's be careful.
+    // For now direct update.
+    setCursorPosition({ x: vizX, y: vizZ });
+  };
 
   return (
     <group>
@@ -206,8 +264,126 @@ export const GridSystem: React.FC = () => {
         </mesh>
       </group>
       
-      {/* Invisible plane for raycasting and shadows */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+      {/* Clicked Tile Indicator */}
+      {clickedTileCoord && (
+        <group position={[toViz(clickedTileCoord.x) + 0.5, 0.1, toViz(clickedTileCoord.y) + 0.5]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.3, 0.4, 32]} />
+            <meshBasicMaterial color="#ffff00" opacity={0.8} transparent side={2} />
+          </mesh>
+          <Html position={[0, 1, 0]} center style={{ pointerEvents: 'none' }}>
+            <div style={{ 
+              background: 'rgba(0,0,0,0.8)', 
+              color: '#ffff00', 
+              padding: '4px 8px', 
+              borderRadius: '4px',
+              fontFamily: 'monospace',
+              fontSize: '12px',
+              border: '1px solid #ffff00',
+              whiteSpace: 'nowrap'
+            }}>
+              ({clickedTileCoord.x}, {clickedTileCoord.y})
+            </div>
+          </Html>
+        </group>
+      )}
+      
+      {/* Measurement Visualization */}
+      {measureMode && measureStart && (
+        <group>
+          {/* Start Marker */}
+          <mesh position={[measureStart.x + 0.5, 0.1, measureStart.y + 0.5]} rotation={[-Math.PI/2, 0, 0]}>
+             <ringGeometry args={[0.2, 0.3, 16]} />
+             <meshBasicMaterial color="#00ffff" />
+          </mesh>
+          
+          {/* Line to End or Cursor */}
+          {(measureEnd || cursorPosition) && (
+             (() => {
+               const target = measureEnd || cursorPosition!;
+               // Calculate distance (Euclidean or Chebyshev)
+               // D&D 5e: usually 5-10-5 for diagonals (approx 1.5) or Chebyshev (max(dx, dy)).
+               // Let's use Chebyshev (1 square = 5ft) for simplicity if requested, or Euclidean.
+               // Prompt says "Euclidean or Chebyshev as per 5e rules". 
+               // Standard rule is variant: 5-5-5 (Chebyshev) or 5-10-5. 
+               // Default (PHB) is 5-5-5 (Chebyshev).
+               const dx = Math.abs(target.x - measureStart.x);
+               const dy = Math.abs(target.y - measureStart.y);
+               const distSquares = Math.max(dx, dy);
+               const distFeet = distSquares * 5;
+
+               return (
+                 <group>
+                   <Line
+                      points={[
+                        [measureStart.x + 0.5, 0.5, measureStart.y + 0.5],
+                        [target.x + 0.5, 0.5, target.y + 0.5]
+                      ]}
+                      color="#00ffff"
+                      lineWidth={2}
+                      dashed
+                      dashScale={2}
+                   />
+                   
+                   {/* End Marker */}
+                   <mesh position={[target.x + 0.5, 0.1, target.y + 0.5]} rotation={[-Math.PI/2, 0, 0]}>
+                     <ringGeometry args={[0.1, 0.2, 16]} />
+                     <meshBasicMaterial color="#00ffff" />
+                   </mesh>
+
+                   {/* Distance Label */}
+                   <Html position={[(measureStart.x + target.x)/2 + 0.5, 1, (measureStart.y + target.y)/2 + 0.5]} center>
+                      <div style={{
+                        background: 'rgba(0, 0, 0, 0.8)',
+                        color: '#00ffff',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontFamily: 'monospace',
+                        pointerEvents: 'none'
+                      }}>
+                        {distFeet} ft
+                      </div>
+                   </Html>
+                 </group>
+               );
+             })()
+          )}
+        </group>
+      )}
+
+      {/* Hover Cursor Highlight (New Feature) */}
+      {cursorPosition && (
+        (() => {
+          // cursorPosition is in Viz coords. helper expects MCP coords.
+          const isBlocked = isTileBlocked(
+            cursorPosition.x + 10, 
+            cursorPosition.y + 10, 
+            entities, 
+            terrain
+          );
+          const color = isBlocked ? '#ff0000' : '#00ff41'; // Red vs Green
+          
+          return (
+            <group position={[cursorPosition.x + 0.5, 0.05, cursorPosition.y + 0.5]}>
+              <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[0.9, 0.9]} />
+                <meshBasicMaterial color={color} opacity={0.3} transparent />
+                <Edges color={color} />
+              </mesh>
+            </group>
+          );
+        })()
+      )}
+
+      {/* Invisible plane for raycasting and shadows - now interactive */}
+      <mesh 
+        rotation={[-Math.PI / 2, 0, 0]} 
+        position={[0, 0, 0]} 
+        receiveShadow 
+        onClick={onPlaneClick}
+        onPointerMove={onPointerMove}
+      >
         <planeGeometry args={[gridSize, gridSize]} />
         <meshBasicMaterial visible={false} />
       </mesh>

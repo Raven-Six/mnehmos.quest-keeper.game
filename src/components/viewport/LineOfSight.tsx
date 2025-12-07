@@ -1,0 +1,64 @@
+import React, { useMemo } from 'react';
+import { Line } from '@react-three/drei';
+import { useCombatStore } from '../../stores/combatStore';
+
+export const LineOfSight: React.FC = () => {
+  const showLineOfSight = useCombatStore(state => state.showLineOfSight);
+  const entities = useCombatStore(state => state.entities);
+  const selectedEntityId = useCombatStore(state => state.selectedEntityId);
+  const cursorPosition = useCombatStore(state => state.cursorPosition);
+  
+  // Determine source entity (selected or first party member)
+  const source = useMemo(() => {
+    return entities.find(e => e.id === selectedEntityId) || entities.find(e => e.type === 'character');
+  }, [entities, selectedEntityId]);
+
+  if (!showLineOfSight || !source) return null;
+
+  return (
+    <group>
+      {/* Entity-to-Entity LOS */}
+      {entities.map(target => {
+        if (target.id === source.id) return null;
+        
+        // Color based on type
+        const isEnemy = target.type === 'monster';
+        const color = isEnemy ? '#ff4444' : '#00ff41';
+        
+        return (
+          <group key={target.id}>
+             <Line
+                points={[
+                   [source.position.x + 0.5, 0.5, source.position.z + 0.5],
+                   [target.position.x + 0.5, 0.5, target.position.z + 0.5]
+                ]}
+                color={color}
+                lineWidth={1}
+                transparent
+                opacity={0.4}
+             />
+          </group>
+        );
+      })}
+
+      {/* Dynamic Cursor LOS */}
+      {cursorPosition && (
+        <Line
+          points={[
+            [source.position.x + 0.5, 0.5, source.position.z + 0.5],
+            // Cursor position is in MCP coords (integers), convert to Viz coords (integers)
+            // Wait, store convention: entities store Viz coords. 
+            // Let's assume cursorPosition will be stored as Viz coords to match entities.
+            [cursorPosition.x + 0.5, 0.5, cursorPosition.y + 0.5]
+          ]}
+          color="#ffff00" // Yellow for cursor
+          lineWidth={2}
+          transparent
+          opacity={0.6}
+          dashed
+          dashScale={2}
+        />
+      )}
+    </group>
+  );
+};

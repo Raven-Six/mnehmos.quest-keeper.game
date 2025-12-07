@@ -4,8 +4,9 @@
  * Testing Zustand store with mock MCP client
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+// act not used? remove if so.
+// afterEach not used? remove if so.
 
 // Mock the MCP client before importing the store
 vi.mock('../services/mcpClient', () => ({
@@ -28,7 +29,7 @@ vi.mock('./gameStateStore', () => ({
 }));
 
 import { usePartyStore } from './partyStore';
-import type { Party, PartyWithMembers, CharacterSummary } from './partyStore';
+import type { Party, PartyWithMembers } from './partyStore';
 
 describe('partyStore', () => {
   beforeEach(() => {

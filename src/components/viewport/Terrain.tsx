@@ -92,9 +92,10 @@ export const Terrain: React.FC<TerrainProps> = ({ feature, allTerrain }) => {
     
     if (!isGroupLeader) return null;
     
+    // Shift center by +0.5 to align with grid squares (0..1) instead of intersections
     return (
       <group onClick={handleClick}>
-        <mesh position={[wallGeometry.center.x, wallGeometry.center.y, wallGeometry.center.z]} castShadow receiveShadow>
+        <mesh position={[wallGeometry.center.x + 0.5, wallGeometry.center.y, wallGeometry.center.z + 0.5]} castShadow receiveShadow>
           <boxGeometry args={[wallGeometry.dimensions.width, wallGeometry.dimensions.height, wallGeometry.dimensions.depth]} />
           <meshStandardMaterial 
             color={color}
@@ -126,6 +127,8 @@ export const Terrain: React.FC<TerrainProps> = ({ feature, allTerrain }) => {
         return { roughness: 0.6, metalness: 0.1, transparent: true, opacity: feature.opacity ?? 0.5 };
       case 'ceiling':
         return { roughness: 0.4, metalness: 0.2, transparent: true, opacity: feature.opacity ?? 0.3 };
+      case 'prop':
+        return { roughness: 0.6, metalness: 0.1, transparent: false, opacity: 1.0, emissive: true };
       default:
         return { roughness: 0.7, metalness: 0.1, transparent: false, opacity: 1.0 };
     }
@@ -136,7 +139,7 @@ export const Terrain: React.FC<TerrainProps> = ({ feature, allTerrain }) => {
   // Render non-wall terrain with 2.5D styling
   return (
     <group onClick={handleClick}>
-      <mesh position={[position.x, position.y, position.z]} castShadow receiveShadow>
+      <mesh position={[position.x + 0.5, position.y, position.z + 0.5]} castShadow receiveShadow>
         <boxGeometry args={[dimensions.width, dimensions.height, dimensions.depth]} />
         <meshStandardMaterial 
           color={color}
@@ -145,8 +148,8 @@ export const Terrain: React.FC<TerrainProps> = ({ feature, allTerrain }) => {
           transparent={materialProps.transparent}
           opacity={materialProps.opacity}
         />
-        {/* Add edge highlight for obstacles */}
-        {(type === 'obstacle' || type === 'wall') && (
+        {/* Add edge highlight for obstacles and props */}
+        {(type === 'obstacle' || type === 'wall' || type === 'prop') && (
           <Edges color="#1a1a1a" linewidth={1.5} />
         )}
       </mesh>

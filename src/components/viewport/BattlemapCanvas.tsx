@@ -5,6 +5,8 @@ import { GridSystem } from './GridSystem';
 import { CameraControls } from './CameraControls';
 import { EntityLayer } from './EntityLayer';
 import { TerrainLayer } from './Terrain';
+import { LineOfSight } from './LineOfSight';
+import { VisualizationControls } from './VisualizationControls';
 import { useCombatStore } from '../../stores/combatStore';
 
 export const BattlemapCanvas: React.FC = () => {
@@ -26,6 +28,8 @@ export const BattlemapCanvas: React.FC = () => {
           </div>
         </div>
       )}
+      
+      <VisualizationControls />
 
       <Canvas
         shadows
@@ -71,6 +75,7 @@ export const BattlemapCanvas: React.FC = () => {
         <GridSystem />
         <TerrainLayer />
         <EntityLayer />
+        <LineOfSight />
         <CameraControls />
 
         {/* Dev Tools */}

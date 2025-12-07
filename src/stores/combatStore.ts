@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { CreatureSize } from '../utils/gridHelpers';
+import { CreatureSize, findNearestOpenTile, getElevationAt } from '../utils/gridHelpers';
 import { mcpManager } from '../services/mcpClient';
 import { useGameStateStore } from './gameStateStore';
 import { parseMcpResponse, debounce } from '../utils/mcpUtils';
@@ -100,6 +100,21 @@ interface EncounterStateJson {
     minY: number;
     maxY: number;
   };
+  // Props - improvised objects (trees, ladders, buildings, etc.)
+  props?: Array<{
+    id: string;
+    position: string;  // "x,y" format
+    label: string;
+    propType: 'structure' | 'cover' | 'climbable' | 'hazard' | 'interactive' | 'decoration';
+    heightFeet?: number;
+    cover?: 'none' | 'half' | 'three_quarter' | 'full';
+    climbable?: boolean;
+    climbDC?: number;
+    breakable?: boolean;
+    hp?: number;
+    currentHp?: number;
+    description?: string;
+  }>;
 }
 
 interface CombatState {
@@ -117,6 +132,14 @@ interface CombatState {
   turnOrder: string[];
   isSyncing: boolean;
   lastSyncTime: number;
+  // Clicked tile coordinate for display
+  clickedTileCoord: { x: number; y: number } | null;
+  // Visualizer tools
+  showLineOfSight: boolean;
+  measureMode: boolean; // If true, clicking tiles sets measureStart/End instead of clickedTileCoord
+  measureStart: { x: number; y: number } | null;
+  measureEnd: { x: number, y: number } | null;
+  cursorPosition: { x: number, y: number } | null; // For dynamic LOS
 
   addEntity: (entity: Entity) => void;
   removeEntity: (id: string) => void;
@@ -127,9 +150,15 @@ interface CombatState {
   setGridConfig: (config: GridConfig) => void;
   setBattlefieldDescription: (desc: string | null) => void;
   setActiveEncounterId: (id: string | null) => void;
+  setShowLineOfSight: (show: boolean) => void;
+  setMeasureMode: (enabled: boolean) => void;
+  setMeasureStart: (pos: { x: number, y: number } | null) => void;
+  setMeasureEnd: (pos: { x: number, y: number } | null) => void;
+  setCursorPosition: (pos: { x: number, y: number } | null) => void;
   syncCombatState: () => Promise<void>;
   updateFromStateJson: (stateJson: EncounterStateJson) => void;
   clearCombat: () => void;
+  setClickedTileCoord: (coord: { x: number; y: number } | null) => void;
 }
 
 const MOCK_ENTITIES: Entity[] = [];
@@ -165,32 +194,81 @@ function determineEntityType(_name: string, isEnemy: boolean, isCurrentTurn: boo
 
 /**
  * Convert EncounterStateJson to Entity array for the battlemap
- * Now uses actual positions from MCP when available
+ * Now uses actual positions from MCP with COLLISION DISPLACEMENT and VERTICALITY
  */
-function stateJsonToEntities(data: EncounterStateJson, gridConfig: GridConfig): Entity[] {
+function stateJsonToEntities(data: EncounterStateJson, gridConfig: GridConfig, terrain: TerrainFeature[]): Entity[] {
   const entities: Entity[] = [];
   const participantCount = data.participants.length;
   
   // Fallback: calculate circle positions if MCP doesn't provide positions
   const radius = Math.min(gridConfig.size / 4, 6);
   
+  // We allow displacement if we have a valid encounterId (combat is likely active)
+  const isCombat = !!data.encounterId;
+
   data.participants.forEach((p, index) => {
-    let x: number, z: number;
-    
+    let mcpX: number, mcpY: number; // Raw MCP coords (Horizontal Grid)
+    let mcpElev: number | undefined = p.position?.z; // MCP Elevation (Vertical) if provided
+    let wasDisplaced = false;
+
     // Use actual MCP position if available, otherwise calculate circle position
     if (p.position && typeof p.position.x === 'number' && typeof p.position.y === 'number') {
-      // MCP uses x,y for grid; visualizer uses x,z (y is vertical)
-      // Also need to center: MCP 0-20 maps to visualizer -10 to +10
-      x = p.position.x - 10;
-      z = p.position.y - 10;
-      console.log(`[stateJsonToEntities] ${p.name} using MCP position: (${p.position.x},${p.position.y}) -> viz (${x},${z})`);
+      mcpX = p.position.x;
+      mcpY = p.position.y;
     } else {
       // Fallback: arrange in circle
       const angle = (2 * Math.PI * index) / participantCount - Math.PI / 2;
-      x = Math.round(Math.cos(angle) * radius);
-      z = Math.round(Math.sin(angle) * radius);
+      mcpX = Math.round(Math.cos(angle) * radius) + 10; // Center at 10,10 for circle
+      mcpY = Math.round(Math.sin(angle) * radius) + 10;
+    }
+
+    // COLLISION CHECK: Check if intended tile is blocked by Terrain or Existing Entities
+    // We check against `entities` (the array we are currently building) to prevent stacking
+    // Note: logic for 'isTileBlocked' currently ignores elevation (2D check only).
+    // Ideally we should allow stacking if elevation differs, but our blockage logic is 2D.
+    // We'll keep displacement logic for horizontal collisions.
+    const safePos = findNearestOpenTile(mcpX, mcpY, entities, terrain, { ignoreEntityIds: [p.id] });
+    
+    if (safePos) {
+      if (safePos.x !== mcpX || safePos.y !== mcpY) {
+        // We had to move!
+        console.warn(`[stateJsonToEntities] Collision detected for ${p.name}! Displaced from (${mcpX},${mcpY}) to (${safePos.x},${safePos.y})`);
+        mcpX = safePos.x;
+        mcpY = safePos.y;
+        wasDisplaced = true;
+      }
+    } else {
+      console.error(`[stateJsonToEntities] Could not find open tile for ${p.name} near (${mcpX},${mcpY})! Spawning anyway (visual clipping may occur).`);
     }
     
+    // Viz coords: mcp - 10
+    const x = mcpX - 10;
+    const z = mcpY - 10;
+
+    // VERTICALITY & SUPPORT LOGIC
+    // Calculate the highest surface at this location (Terrain or other Entities)
+    const surfaceHeight = getElevationAt(mcpX, mcpY, terrain, entities);
+    
+    // Determine logical elevation (feet/units above ground 0)
+    let finalElevation = surfaceHeight;
+    let isFalling = false;
+    
+    if (mcpElev !== undefined) {
+      // If MCP specifies an elevation
+      if (mcpElev > surfaceHeight + 0.1) {
+        // Higher than support -> Falling (unless flying, but we don't have fly speed yet)
+        isFalling = true;
+        finalElevation = mcpElev; 
+      } else {
+        // Lower or equal -> snap to surface (cannot bury inside terrain)
+        finalElevation = Math.max(mcpElev, surfaceHeight);
+      }
+    }
+    
+    // Visual Y Position: Elevation + Half Height (0.4)
+    // Assuming standard 0.8 height tokens
+    const visualY = finalElevation + 0.4;
+
     const { type, color } = determineEntityType(p.name, p.isEnemy, p.isCurrentTurn);
     
     // Map MCP size to CreatureSize
@@ -204,12 +282,21 @@ function stateJsonToEntities(data: EncounterStateJson, gridConfig: GridConfig): 
     };
     const creatureSize = sizeMap[p.size?.toLowerCase() || 'medium'] || 'Medium';
 
+    // Add Conditions
+    const finalConditions = [...p.conditions];
+    if (wasDisplaced && isCombat && !finalConditions.includes('Displaced')) {
+      finalConditions.push('Displaced');
+    }
+    if (isFalling && isCombat && !finalConditions.includes('Falling')) {
+      finalConditions.push('Falling');
+    }
+
     const entity: Entity = {
       id: p.id,
       name: p.name,
       type,
       size: creatureSize,
-      position: { x, y: 0, z },
+      position: { x, y: visualY, z },
       color,
       model: 'box',
       isCurrentTurn: p.isCurrentTurn,
@@ -220,7 +307,7 @@ function stateJsonToEntities(data: EncounterStateJson, gridConfig: GridConfig): 
         },
         ac: 10, // Default AC
         creatureType: type,
-        conditions: p.conditions
+        conditions: finalConditions
       }
     };
     
@@ -318,6 +405,51 @@ function stateJsonToTerrain(data: EncounterStateJson): TerrainFeature[] {
     });
   });
   
+  // Convert props (improvised objects) to terrain features
+  data.props?.forEach((prop, i) => {
+    const [xStr, yStr] = prop.position.split(',');
+    const x = parseInt(xStr, 10);
+    const y = parseInt(yStr, 10);
+    
+    if (isNaN(x) || isNaN(y)) return;
+    
+    // Calculate height based on propType and heightFeet
+    const heightUnits = prop.heightFeet ? prop.heightFeet / 5 : 1; // 5ft per unit
+    
+    // Color based on prop type
+    const propColors: Record<string, string> = {
+      'structure': '#8B4513',   // Brown (buildings, bridges)
+      'cover': '#556B2F',       // Dark olive (barrels, crates)
+      'climbable': '#228B22',   // Forest green (trees, ladders)
+      'hazard': '#FF4500',      // Orange red (fire, pit)
+      'interactive': '#DAA520', // Goldenrod (levers, doors)
+      'decoration': '#9370DB'   // Medium purple (statues, fountains)
+    };
+    
+    // Cover type to our format
+    const coverMap: Record<string, 'half' | 'three-quarters' | 'full' | 'none'> = {
+      'half': 'half',
+      'three_quarter': 'three-quarters',
+      'full': 'full',
+      'none': 'none'
+    };
+    
+    console.log(`[stateJsonToTerrain] Prop ${i}: "${prop.label}" MCP (${x},${y}) -> viz (${x - 10},${y - 10})`);
+    terrain.push({
+      id: prop.id || `prop-${i}`,
+      type: 'prop' as any,  // Extended type
+      position: { x: x - 10, y: heightUnits / 2, z: y - 10 },
+      dimensions: { width: 1, height: heightUnits, depth: 1 },
+      blocksMovement: prop.propType === 'structure' || prop.cover === 'full',
+      coverType: coverMap[prop.cover || 'none'] || 'none',
+      color: propColors[prop.propType] || '#888888',
+      elevation: 0,
+      layer: 2,  // Props render above other terrain
+      opacity: 1,
+      // Store extra prop data for tooltips
+    } as TerrainFeature);
+  });
+  
   console.log(`[stateJsonToTerrain] Created ${terrain.length} terrain features`);
   return terrain;
 }
@@ -367,6 +499,12 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   turnOrder: [],
   isSyncing: false,
   lastSyncTime: 0,
+  clickedTileCoord: null,
+  showLineOfSight: false,
+  measureMode: false,
+  measureStart: null,
+  measureEnd: null,
+  cursorPosition: null,
 
   addEntity: (entity) => set((state) => ({
     entities: [...state.entities, entity]
@@ -410,16 +548,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   
   setActiveEncounterId: (id) => set({ activeEncounterId: id }),
   
-  clearCombat: () => set({
-    entities: [],
-    terrain: [],
-    activeEncounterId: null,
-    currentRound: 0,
-    currentTurnName: null,
-    turnOrder: [],
-    battlefieldDescription: null,
-    selectedEntityId: null
-  }),
+
 
   /**
    * Update store from a state JSON object
@@ -428,8 +557,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   updateFromStateJson: (stateJson: EncounterStateJson) => {
     const { gridConfig } = get();
     
-    const entities = stateJsonToEntities(stateJson, gridConfig);
+    // Generate terrain FIRST so we can check collisions against it
     const terrain = stateJsonToTerrain(stateJson);
+    const entities = stateJsonToEntities(stateJson, gridConfig, terrain);
     const description = generateBattlefieldDescription(stateJson);
     
     set({
@@ -549,7 +679,35 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     } finally {
       set({ isSyncing: false });
     }
-  }
+  },
+
+  clearCombat: () => set({
+    entities: [],
+    terrain: [],
+    activeEncounterId: null,
+    currentRound: 0,
+    currentTurnName: null,
+    turnOrder: [],
+    battlefieldDescription: null,
+    selectedEntityId: null,
+    clickedTileCoord: null,
+    showLineOfSight: false,
+    measureMode: false,
+    measureStart: null,
+    measureEnd: null,
+    cursorPosition: null
+  }),
+
+  setClickedTileCoord: (coord) => set({ clickedTileCoord: coord }),
+  setShowLineOfSight: (show) => set({ showLineOfSight: show }),
+  setMeasureMode: (enabled) => set({ 
+    measureMode: enabled,
+    measureStart: null,
+    measureEnd: null
+  }),
+  setMeasureStart: (pos) => set({ measureStart: pos }),
+  setMeasureEnd: (pos) => set({ measureEnd: pos }),
+  setCursorPosition: (pos) => set({ cursorPosition: pos })
 }));
 
 // Export debounced sync for use in components
