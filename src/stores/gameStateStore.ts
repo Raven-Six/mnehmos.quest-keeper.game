@@ -93,6 +93,8 @@ export interface CharacterCurrencies {
   electrum?: number;
 }
 
+export type CharacterType = 'pc' | 'npc' | 'enemy' | 'neutral';
+
 export interface CharacterStats {
   id?: string;
   name: string;
@@ -119,6 +121,7 @@ export interface CharacterStats {
   savingThrowProficiencies?: ('str' | 'dex' | 'con' | 'int' | 'wis' | 'cha')[];
   speed?: number;
   armorClass?: number; // Calculated or overridden AC
+  characterType?: CharacterType; // pc, npc, enemy, neutral
 }
 
 interface GameState {
@@ -226,7 +229,8 @@ function parseCharacterFromJson(char: any): CharacterStats | null {
       currencies,
       savingThrowProficiencies,
       speed: char.speed ?? 30,
-      armorClass: char.armorClass ?? char.ac
+      armorClass: char.armorClass ?? char.ac,
+      characterType: char.characterType || char.character_type || 'pc'
     };
   } catch (error) {
     console.error('[parseCharacterFromJson] Failed to parse character:', error);

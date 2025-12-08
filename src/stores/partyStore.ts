@@ -84,6 +84,24 @@ export interface PartyContext {
   }>;
 }
 
+export interface CharacterUpdates {
+  name?: string;
+  race?: string;
+  class?: string;
+  level?: number;
+  hp?: number;
+  maxHp?: number;
+  ac?: number;
+  stats?: {
+    str?: number;
+    dex?: number;
+    con?: number;
+    int?: number;
+    wis?: number;
+    cha?: number;
+  };
+}
+
 // ============================================
 // Store Interface
 // ============================================
@@ -124,6 +142,10 @@ interface PartyState {
   updateMember: (partyId: string, characterId: string, updates: Partial<Pick<PartyMember, 'role' | 'position' | 'notes'>>) => Promise<boolean>;
   setLeader: (partyId: string, characterId: string) => Promise<boolean>;
   setActiveCharacter: (partyId: string, characterId: string) => Promise<boolean>;
+
+  // Character CRUD
+  deleteCharacter: (characterId: string) => Promise<boolean>;
+  updateCharacter: (characterId: string, updates: CharacterUpdates) => Promise<boolean>;
 
   // Sync operations
   syncParties: () => Promise<void>;
@@ -547,6 +569,78 @@ export const usePartyStore = create<PartyState>()(
         } catch (error: any) {
           console.error('[PartyStore] Set active character error:', error);
           set({ error: error.message || 'Failed to set active character' });
+          return false;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      // ============================================
+      // Character CRUD Operations
+      // ============================================
+
+      deleteCharacter: async (characterId) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const { mcpManager } = await import('../services/mcpClient');
+
+          console.log('[PartyStore] Deleting character:', characterId);
+          await mcpManager.gameStateClient.callTool('delete_character', { id: characterId });
+
+          // If this was the active character, clear it
+          const { useGameStateStore } = await import('./gameStateStore');
+          const gameState = useGameStateStore.getState();
+          if (gameState.activeCharacterId === characterId) {
+            gameState.setActiveCharacterId(null, false);
+          }
+
+          // Refresh all party details to remove the character from any parties
+          const { activePartyId } = get();
+          if (activePartyId) {
+            await get().syncPartyDetails(activePartyId);
+          }
+          await get().syncUnassignedCharacters();
+
+          return true;
+        } catch (error: any) {
+          console.error('[PartyStore] Delete character error:', error);
+          set({ error: error.message || 'Failed to delete character' });
+          return false;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      updateCharacter: async (characterId, updates) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          const { mcpManager } = await import('../services/mcpClient');
+
+          console.log('[PartyStore] Updating character:', characterId, updates);
+          await mcpManager.gameStateClient.callTool('update_character', {
+            id: characterId,
+            ...updates,
+          });
+
+          // Refresh party details to reflect changes
+          const { activePartyId } = get();
+          if (activePartyId) {
+            await get().syncPartyDetails(activePartyId);
+          }
+
+          // Also refresh gameState if this is the active character
+          const { useGameStateStore } = await import('./gameStateStore');
+          const gameState = useGameStateStore.getState();
+          if (gameState.activeCharacterId === characterId) {
+            await gameState.syncState(true);
+          }
+
+          return true;
+        } catch (error: any) {
+          console.error('[PartyStore] Update character error:', error);
+          set({ error: error.message || 'Failed to update character' });
           return false;
         } finally {
           set({ isLoading: false });

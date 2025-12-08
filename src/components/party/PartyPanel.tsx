@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { usePartyStore, PartyMemberWithCharacter, MemberRole } from '../../stores/partyStore';
 import { useGameStateStore } from '../../stores/gameStateStore';
+import { ConfirmModal } from '../common/ConfirmModal';
 
 interface PartyPanelProps {
   onAddMember?: () => void;
@@ -25,6 +26,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
 }) => {
   const [showFormation, setShowFormation] = useState(false);
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
+  const [showDeletePartyConfirm, setShowDeletePartyConfirm] = useState(false);
 
   const activePartyId = usePartyStore((state) => state.activePartyId);
   const partyDetails = usePartyStore((state) => state.partyDetails);
@@ -32,6 +34,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
   const setActiveCharacter = usePartyStore((state) => state.setActiveCharacter);
   const removeMember = usePartyStore((state) => state.removeMember);
   const updateParty = usePartyStore((state) => state.updateParty);
+  const deleteParty = usePartyStore((state) => state.deleteParty);
   const isLoading = usePartyStore((state) => state.isLoading);
 
   // *** UNIFIED SOURCE OF TRUTH: Use gameStateStore for active character ***
@@ -99,6 +102,15 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
     if (activePartyId) {
       await updateParty(activePartyId, { formation });
       setShowFormation(false);
+    }
+  };
+
+  const handleDeleteParty = async () => {
+    if (activePartyId) {
+      const success = await deleteParty(activePartyId);
+      if (success) {
+        setShowDeletePartyConfirm(false);
+      }
     }
   };
 
@@ -254,6 +266,7 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
   };
 
   return (
+    <>
     <div className={compact ? '' : 'space-y-4'}>
       {/* Party Header */}
       <div className="flex items-center justify-between">
@@ -309,6 +322,15 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
               +
             </button>
           )}
+
+          {/* Delete Party Button */}
+          <button
+            onClick={() => setShowDeletePartyConfirm(true)}
+            className="px-2 py-1 text-xs bg-red-500/10 border border-red-500/50 text-red-400 rounded hover:bg-red-500/20 transition-colors"
+            title="Delete Party"
+          >
+            🗑️
+          </button>
         </div>
       </div>
 
@@ -350,6 +372,19 @@ export const PartyPanel: React.FC<PartyPanelProps> = ({
         </div>
       )}
     </div>
+
+      {/* Delete Party Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeletePartyConfirm}
+        onClose={() => setShowDeletePartyConfirm(false)}
+        onConfirm={handleDeleteParty}
+        title="Delete Party"
+        message={`Are you sure you want to delete "${activeParty?.name || 'this party'}"? All members will become unassigned.`}
+        confirmText="Delete Party"
+        isDanger={true}
+        isLoading={isLoading}
+      />
+    </>
   );
 };
 

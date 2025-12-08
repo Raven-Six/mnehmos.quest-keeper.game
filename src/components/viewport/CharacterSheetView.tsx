@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useGameStateStore, CharacterCondition } from '../../stores/gameStateStore';
+import { usePartyStore } from '../../stores/partyStore';
 import { dnd5eItems } from '../../data/dnd5eItems';
+import { ConfirmModal } from '../common/ConfirmModal';
 
 // Armor type categories for AC calculation
 type ArmorCategory = 'light' | 'medium' | 'heavy' | 'none';
@@ -116,10 +118,49 @@ function getConditionColor(conditionName: string): string {
 }
 
 export const CharacterSheetView: React.FC = () => {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCharacterDropdown, setShowCharacterDropdown] = useState(false);
+
   const activeCharacter = useGameStateStore(state => state.activeCharacter);
   const activeCharacterId = useGameStateStore(state => state.activeCharacterId);
   const inventory = useGameStateStore(state => state.inventory);
   const syncState = useGameStateStore(state => state.syncState);
+
+  const deleteCharacter = usePartyStore(state => state.deleteCharacter);
+  const isLoading = usePartyStore(state => state.isLoading);
+
+  // Get party members for character selector
+  const activePartyId = usePartyStore(state => state.activePartyId);
+  const partyDetails = usePartyStore(state => state.partyDetails);
+  const setActiveCharacter = usePartyStore(state => state.setActiveCharacter);
+  
+  const activeParty = activePartyId ? partyDetails[activePartyId] : null;
+  const partyMembers = activeParty?.members || [];
+
+  // Get character type badge colors
+  const getTypeBadge = (type?: string) => {
+    switch (type) {
+      case 'pc':
+        return { label: 'PC', color: 'bg-blue-500/20 text-blue-400 border-blue-500/50' };
+      case 'npc':
+        return { label: 'NPC', color: 'bg-purple-500/20 text-purple-400 border-purple-500/50' };
+      case 'enemy':
+        return { label: 'ENEMY', color: 'bg-red-500/20 text-red-400 border-red-500/50' };
+      case 'neutral':
+        return { label: 'NEUTRAL', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50' };
+      default:
+        return { label: 'PC', color: 'bg-blue-500/20 text-blue-400 border-blue-500/50' };
+    }
+  };
+
+  const handleDeleteCharacter = async () => {
+    if (activeCharacterId) {
+      const success = await deleteCharacter(activeCharacterId);
+      if (success) {
+        setShowDeleteConfirm(false);
+      }
+    }
+  };
 
   React.useEffect(() => {
     // Refresh character data when view mounts or when the active character changes.
@@ -193,12 +234,62 @@ export const CharacterSheetView: React.FC = () => {
   );
 
   return (
+    <>
     <div className="h-full w-full overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-terminal-green/20 scrollbar-track-transparent">
       {/* Header Section */}
       <div className="border-b-2 border-terminal-green pb-6 mb-6">
         <div className="flex justify-between items-end">
           <div>
-            <h1 className="text-4xl font-bold mb-2 uppercase">{name}</h1>
+            <div className="flex items-center gap-3 mb-2">
+              {/* Character Selector Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowCharacterDropdown(!showCharacterDropdown)}
+                  className="text-4xl font-bold uppercase hover:text-terminal-green-bright transition-colors flex items-center gap-2"
+                  title="Switch Character"
+                >
+                  {name}
+                  <span className="text-lg">▼</span>
+                </button>
+                {showCharacterDropdown && partyMembers.length > 0 && (
+                  <div className="absolute left-0 top-full mt-1 bg-terminal-black border border-terminal-green rounded shadow-lg z-20 min-w-[200px] max-h-[300px] overflow-y-auto">
+                    {partyMembers.map((member) => (
+                      <button
+                        key={member.characterId}
+                        onClick={() => {
+                          if (activePartyId) {
+                            setActiveCharacter(activePartyId, member.characterId);
+                          }
+                          setShowCharacterDropdown(false);
+                        }}
+                        className={`block w-full px-3 py-2 text-left hover:bg-terminal-green/10 transition-colors ${
+                          member.isActive ? 'bg-terminal-green/20 text-terminal-green-bright' : 'text-terminal-green'
+                        }`}
+                      >
+                        <div className="font-semibold">{member.character?.name || member.characterId}</div>
+                        <div className="text-xs opacity-60">
+                          {member.character?.class} • {member.role}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {/* Character Type Badge */}
+              <span className={`text-xs px-2 py-1 border rounded font-bold ${getTypeBadge(activeCharacter.characterType).color}`}>
+                {getTypeBadge(activeCharacter.characterType).label}
+              </span>
+              
+              {/* Delete Button */}
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-2 py-1 text-xs bg-red-500/10 border border-red-500/50 text-red-400 rounded hover:bg-red-500/20 transition-colors"
+                title="Delete Character"
+              >
+                🗑️
+              </button>
+            </div>
             <div className="flex space-x-4 text-lg text-terminal-green/80">
               <span>LVL {level}</span>
               {race && <span>{race}</span>}
@@ -401,5 +492,18 @@ export const CharacterSheetView: React.FC = () => {
         )}
       </div>
     </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteCharacter}
+        title="Delete Character"
+        message={`Are you sure you want to permanently delete ${name}? This action cannot be undone.`}
+        confirmText="Delete"
+        isDanger={true}
+        isLoading={isLoading}
+      />
+    </>
   );
 };

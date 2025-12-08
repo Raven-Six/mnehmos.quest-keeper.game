@@ -480,7 +480,7 @@ export const ChatInput: React.FC = () => {
           let output = `## ${char.name}\n\n`;
           output += `**ID:** \`${char.id}\`\n`;
           output += `**Race:** ${char.race || 'Unknown'}\n`;
-          output += `**Class:** ${char.class || 'Adventurer'}\n`;
+          output += `**Class:** ${char.class || char.characterClass || 'Adventurer'}\n`;
           output += `**Level:** ${char.level || 1}\n`;
           output += `**HP:** ${char.hp || 0}/${char.maxHp || 0}\n`;
           output += `**AC:** ${char.ac || 10}\n\n`;
@@ -558,25 +558,36 @@ export const ChatInput: React.FC = () => {
             return { content: `No active character. Select a character first.`, type: 'error' };
           }
   
-          const result = await mcpManager.gameStateClient.callTool('get_inventory', { characterId: charId });
-          const text = result?.content?.[0]?.text || '[]';
+          // Use get_inventory_detailed for full item names
+          const result = await mcpManager.gameStateClient.callTool('get_inventory_detailed', { characterId: charId });
+          const text = result?.content?.[0]?.text || '{}';
           
-          let items;
+          let data;
           try {
-            items = JSON.parse(text);
+            data = JSON.parse(text);
           } catch {
             return { content: text };
           }
   
+          // Backend returns {items: [{item: {...}, quantity, equipped}, ...], equipment: {...}, totalWeight, capacity}
+          const items = data.items || [];
+          
           if (!Array.isArray(items) || items.length === 0) {
             return { content: `*Inventory is empty*` };
           }
   
-          let output = `## Inventory (${items.length} items)\n\n`;
-          output += `| Item | Type | Qty | Equipped |\n`;
-          output += `|------|------|-----|----------|\n`;
-          for (const item of items) {
-            output += `| ${item.name} | ${item.type || '-'} | ${item.quantity || 1} | ${item.equipped ? '✓' : '-'} |\n`;
+          let output = `## 🎒 Inventory (${items.length} items)\n`;
+          output += `**Weight:** ${data.totalWeight?.toFixed(1) || 0} / ${data.capacity || 100} lbs\n\n`;
+          output += `| Item | Type | Qty | Weight | Equipped |\n`;
+          output += `|------|------|-----|--------|----------|\n`;
+          for (const entry of items) {
+            const item = entry.item || entry;
+            const name = item.name || entry.itemId || 'Unknown';
+            const type = item.type || '-';
+            const qty = entry.quantity || 1;
+            const weight = item.weight ? `${(item.weight * qty).toFixed(1)}` : '-';
+            const equipped = entry.equipped ? '✓' : '-';
+            output += `| ${name} | ${type} | ${qty} | ${weight} | ${equipped} |\n`;
           }
           return { content: output };
         } catch (error: any) {

@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { mcpManager } from '../../services/mcpClient';
 import { parseMcpResponse } from '../../utils/mcpUtils';
 import { useGameStateStore } from '../../stores/gameStateStore';
+import { getStartingGear, getStartingItemIds } from '../../data/startingGear';
 
 interface CharacterCreationModalProps {
   isOpen: boolean;
@@ -303,6 +304,31 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
 
       if (data && data.id) {
         console.log('[CharacterCreationModal] Character created:', data.id);
+        
+        // Give starting gear based on class and level
+        const startingGear = getStartingGear(actualClass, level);
+        const itemIds = getStartingItemIds(startingGear);
+        
+        console.log('[CharacterCreationModal] Giving starting gear:', itemIds);
+        
+        for (const itemId of itemIds) {
+          try {
+            await mcpManager.gameStateClient.callTool('give_item', {
+              characterId: data.id,
+              itemId: itemId,
+              quantity: 1
+            });
+          } catch (giveErr) {
+            // Item might not exist in database - log but don't fail
+            console.warn(`[CharacterCreationModal] Could not give item ${itemId}:`, giveErr);
+          }
+        }
+        
+        // Give starting gold if the character has a currency tracker
+        if (startingGear.gold > 0) {
+          console.log('[CharacterCreationModal] Starting gold:', startingGear.gold);
+          // TODO: Add gold via update_character or currency tool when available
+        }
         
         // Sync state to refresh character list
         await syncState(true);
