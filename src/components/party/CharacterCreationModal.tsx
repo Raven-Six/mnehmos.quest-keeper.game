@@ -113,8 +113,8 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
       if (data) {
         // Parse the roll result
         const total = data.total || data.result || 10;
-        const rolls = data.rolls || data.dice || [3, 3, 3, 3];
-        const dropped = data.dropped?.[0] || Math.min(...rolls);
+        const rolls = data.metadata?.rolls || data.rolls || data.dice || [3, 3, 3, 3];
+        const dropped = data.metadata?.dropped?.[0] || data.dropped?.[0] || Math.min(...rolls);
         
         setRollResults(prev => ({
           ...prev,
