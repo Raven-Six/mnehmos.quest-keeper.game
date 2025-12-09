@@ -133,6 +133,15 @@ export interface CustomEffect {
   mechanics: any[];
 }
 
+export interface ConcentrationState {
+  activeSpell: string;
+  spellLevel: number;
+  targetIds?: string[];
+  startedAt: number;
+  maxDuration?: number;
+  saveDCBase?: number;
+}
+
 
 export interface CharacterStats {
   id?: string;
@@ -175,6 +184,9 @@ export interface CharacterStats {
   spellcastingAbility?: string;
   spellSaveDC?: number;
   spellAttackBonus?: number;
+  
+  // Concentration
+  concentrationState?: ConcentrationState | null;
 }
 
 interface GameState {
@@ -641,13 +653,50 @@ export const useGameStateStore = create<GameState>()(
             console.log('[GameStateStore] Syncing data for character ID:', activeCharId);
 
             // ============================================
-            // 2. Batch fetch inventory and quests in parallel
+            // 2. Batch fetch character details, inventory, quests, effects, and concentration
             // ============================================
             const batchResults = await executeBatchToolCalls(mcpManager.gameStateClient, [
+              { name: 'get_character', args: { id: activeCharId } },
               { name: 'get_inventory_detailed', args: { characterId: activeCharId } },
               { name: 'get_quest_log', args: { characterId: activeCharId } },
-              { name: 'get_custom_effects', args: { target_id: activeCharId, target_type: 'character', include_inactive: false } }
+              { name: 'get_custom_effects', args: { target_id: activeCharId, target_type: 'character', include_inactive: false } },
+              { name: 'get_concentration_state', args: { characterId: activeCharId } }
             ]);
+
+            // Process full character data (includes spellSlots, pactMagicSlots, etc.)
+            const characterResult = batchResults.find(r => r.name === 'get_character');
+            let fullCharacterData: any = null;
+            if (characterResult && !characterResult.error) {
+              fullCharacterData = parseMcpResponse<any>(characterResult.result, null);
+              if (fullCharacterData) {
+                console.log('[GameStateStore] Fetched full character data with spell slots:', 
+                  fullCharacterData.spellSlots ? 'yes' : 'no',
+                  'pactMagic:', fullCharacterData.pactMagicSlots ? 'yes' : 'no'
+                );
+              }
+            }
+            
+            // Process concentration state
+            const concentrationResult = batchResults.find(r => r.name === 'get_concentration_state');
+            let concentrationState: ConcentrationState | null = null;
+            if (concentrationResult && !concentrationResult.error) {
+              const content = concentrationResult.result?.content?.[0]?.text;
+              // The tool returns text indicating if concentrating or not
+              // Try to parse structured data if available
+              if (content && content.includes('Active Concentration')) {
+                // Parse the text response - look for spell name
+                const spellMatch = content.match(/Spell:\s*([^\n(]+)/);
+                const levelMatch = content.match(/Level\s*(\d+)/);
+                if (spellMatch) {
+                  concentrationState = {
+                    activeSpell: spellMatch[1].trim(),
+                    spellLevel: levelMatch ? parseInt(levelMatch[1]) : 0,
+                    startedAt: 1
+                  };
+                  console.log('[GameStateStore] Active concentration:', concentrationState.activeSpell);
+                }
+              }
+            }
 
             // Process inventory result
             const inventoryResult = batchResults.find(r => r.name === 'get_inventory_detailed');
@@ -699,6 +748,21 @@ export const useGameStateStore = create<GameState>()(
                   
                   if (newActiveCharacter) {
                     newActiveCharacter.customEffects = customEffects;
+                    
+                    // Merge spell data from full character fetch
+                    if (fullCharacterData) {
+                      newActiveCharacter.spellSlots = fullCharacterData.spellSlots || newActiveCharacter.spellSlots;
+                      newActiveCharacter.pactMagicSlots = fullCharacterData.pactMagicSlots || newActiveCharacter.pactMagicSlots;
+                      newActiveCharacter.knownSpells = fullCharacterData.knownSpells || newActiveCharacter.knownSpells;
+                      newActiveCharacter.preparedSpells = fullCharacterData.preparedSpells || newActiveCharacter.preparedSpells;
+                      newActiveCharacter.cantripsKnown = fullCharacterData.cantripsKnown || newActiveCharacter.cantripsKnown;
+                      newActiveCharacter.spellcastingAbility = fullCharacterData.spellcastingAbility || newActiveCharacter.spellcastingAbility;
+                      newActiveCharacter.spellSaveDC = fullCharacterData.spellSaveDC ?? newActiveCharacter.spellSaveDC;
+                      newActiveCharacter.spellAttackBonus = fullCharacterData.spellAttackBonus ?? newActiveCharacter.spellAttackBonus;
+                    }
+                    
+                    // Merge concentration state
+                    newActiveCharacter.concentrationState = concentrationState;
                     // Update currencies
                     if (!newActiveCharacter.currencies) {
                       newActiveCharacter.currencies = calculatedCurrencies;

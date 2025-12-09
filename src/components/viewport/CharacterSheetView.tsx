@@ -6,6 +6,7 @@ import { ConfirmModal } from '../common/ConfirmModal';
 import { SpellBookView } from '../character/SpellBookView';
 import { ConditionsDisplay } from '../character/ConditionsDisplay';
 import CustomEffectsDisplay from '../character/CustomEffectsDisplay';
+import { ConcentrationIndicator } from '../character/ConcentrationIndicator';
 
 // Armor type categories for AC calculation
 type ArmorCategory = 'light' | 'medium' | 'heavy' | 'none';
@@ -284,6 +285,16 @@ export const CharacterSheetView: React.FC = () => {
             style={{ width: `${Math.min((hp.current / hp.max) * 100, 100)}%` }}
           />
         </div>
+
+        {/* Concentration Indicator (if active) */}
+        {activeCharacter?.concentrationState && (
+          <div className="mt-4">
+            <ConcentrationIndicator
+              characterId={activeCharacter.id || ''}
+              concentration={activeCharacter.concentrationState}
+            />
+          </div>
+        )}
 
         {/* Conditions Display */}
         <div className="mt-4">

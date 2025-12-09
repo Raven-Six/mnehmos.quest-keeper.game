@@ -27,6 +27,11 @@ interface UIState {
   showSessionManager: boolean;
   openSessionManager: () => void;
   closeSessionManager: () => void;
+  
+  // Quick Command Dispatch (for sidebar buttons)
+  pendingCommand: string | null;
+  setPendingCommand: (command: string) => void;
+  clearPendingCommand: () => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -66,4 +71,5 @@ export const useUIStore = create<UIState>((set) => ({
   // Session Manager Actions
   openSessionManager: () => set({ showSessionManager: true }),
   closeSessionManager: () => set({ showSessionManager: false }),
-}));
+  
+  
