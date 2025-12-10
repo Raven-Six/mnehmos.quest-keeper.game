@@ -8,6 +8,7 @@ import { useCombatStore } from '../../stores/combatStore';
  */
 export const QuickActionBar: React.FC = () => {
     const toggleInventory = useHudStore(s => s.toggleInventory);
+    const toggleSpellbook = useHudStore(s => s.toggleSpellbook);
     
     // Visualization tools from combat store
     const showLineOfSight = useCombatStore(s => s.showLineOfSight);
@@ -25,7 +26,7 @@ export const QuickActionBar: React.FC = () => {
             <ActionButton 
                 label="Spellbook" 
                 icon="📖" 
-                onClick={toggleInventory} // TODO: Create separate spellbook view
+                onClick={toggleSpellbook}
             />
             <ActionButton 
                 label="Line of Sight" 

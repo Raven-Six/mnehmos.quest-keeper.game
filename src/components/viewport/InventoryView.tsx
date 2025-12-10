@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { useGameStateStore, InventoryItem } from '../../stores/gameStateStore';
 
-export const InventoryView: React.FC = () => {
+interface InventoryViewProps {
+  onClose?: () => void;
+}
+
+export const InventoryView: React.FC<InventoryViewProps> = ({ onClose }) => {
   const inventory = useGameStateStore((state) => state.inventory);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
 
   return (
-    <div className="h-full flex flex-col p-4 font-mono text-terminal-green overflow-hidden">
+    <div className="h-full flex flex-col p-4 font-mono text-terminal-green overflow-hidden relative">
       <style>{`
         .inventory-scroll {
           scrollbar-width: thin;
@@ -30,9 +34,19 @@ export const InventoryView: React.FC = () => {
         }
       `}</style>
       
-      <h2 className="text-xl font-bold mb-4 border-b border-terminal-green-dim pb-2 uppercase tracking-wider text-glow flex-shrink-0">
-        Inventory Protocol
-      </h2>
+      <div className="flex justify-between items-center mb-4 border-b border-terminal-green-dim pb-2">
+        <h2 className="text-xl font-bold uppercase tracking-wider text-glow flex-shrink-0">
+          Inventory
+        </h2>
+        {onClose && (
+          <button 
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center border border-terminal-green/30 rounded hover:bg-terminal-green/20 text-terminal-green transition-colors"
+          >
+            ✕
+          </button>
+        )}
+      </div>
 
       <div 
         className="flex-1 min-h-0 overflow-y-scroll pr-2 inventory-scroll border-r-2 border-terminal-green/20" 

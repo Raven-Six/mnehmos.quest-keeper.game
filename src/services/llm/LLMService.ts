@@ -176,14 +176,19 @@ class LLMService {
         if (toolName === 'create_encounter') {
             try {
                 const { useCombatStore } = await import('../../stores/combatStore');
+                const { usePartyStore } = await import('../../stores/partyStore');
 
                 // Try to extract encounter ID from formatted text or JSON
                 let encounterId: string | null = null;
+                let participants: Array<{ id: string; type: string; name: string }> = [];
 
-                // First try JSON parsing
+                // First try JSON parsing specific to this tool
                 const data = parseMcpResponse<any>(result, null);
-                if (data?.encounterId) {
-                    encounterId = data.encounterId;
+                if (data) {
+                    if (data.encounterId) encounterId = data.encounterId;
+                    if (data.participants && Array.isArray(data.participants)) {
+                        participants = data.participants;
+                    }
                 }
 
                 // If no JSON encounterId, try to extract from formatted text
@@ -196,13 +201,16 @@ class LLMService {
                     }
                     
                     // Also try extracting from embedded JSON
-                    if (!encounterId) {
+                    if (!encounterId || participants.length === 0) {
                         const jsonMatch = textContent.match(/<!-- STATE_JSON\n([\s\S]*?)\nSTATE_JSON -->/);
                         if (jsonMatch && jsonMatch[1]) {
                             try {
                                 const stateJson = JSON.parse(jsonMatch[1]);
                                 if (stateJson.encounterId) {
                                     encounterId = stateJson.encounterId;
+                                }
+                                if (stateJson.participants && Array.isArray(stateJson.participants)) {
+                                    participants = stateJson.participants;
                                 }
                             } catch { /* ignore parse errors */ }
                         }
@@ -212,6 +220,32 @@ class LLMService {
                 if (encounterId) {
                     console.log(`[LLMService] Setting active encounter ID: ${encounterId}`);
                     useCombatStore.getState().setActiveEncounterId(encounterId);
+
+                    // AUTO-ADD ENCOUNTER MEMBERS TO ACTIVE PARTY
+                    const { activePartyId, addMember, getActiveParty } = usePartyStore.getState();
+                    
+                    if (activePartyId && participants.length > 0) {
+                        const activeParty = getActiveParty();
+                        const existingMemberIds = new Set(activeParty?.members.map(m => m.character.id) || []);
+                        
+                        let addedCount = 0;
+                        for (const char of participants) {
+                            // Only auto-add PCs that aren't already in the party
+                            if (char.type === 'pc' && !existingMemberIds.has(char.id)) {
+                                console.log(`[LLMService] Auto-adding ${char.name} (${char.id}) to party ${activePartyId}`);
+                                try {
+                                    await addMember(activePartyId, char.id, 'member');
+                                    addedCount++;
+                                } catch (e) {
+                                    console.warn(`[LLMService] Failed to auto-add ${char.name} to party:`, e);
+                                }
+                            }
+                        }
+                        
+                        if (addedCount > 0) {
+                            console.log(`[LLMService] Successfully auto-added ${addedCount} members to the active party.`);
+                        }
+                    }
                 } else {
                     console.warn('[LLMService] Could not find encounter ID in create_encounter result');
                 }
@@ -252,8 +286,8 @@ class LLMService {
         let currentHistory = [...history];
         let finalContent = '';
 
-        // Max 5 turns to prevent infinite loops
-        for (let turn = 0; turn < 5; turn++) {
+        // Max 25 turns to allow extensive tool usage while preventing infinite loops
+        for (let turn = 0; turn < 25; turn++) {
             console.log(`[LLMService] Turn ${turn + 1}`);
             const response: LLMResponse = await provider.sendMessage(currentHistory, apiKey, model, allTools);
 
@@ -317,7 +351,7 @@ class LLMService {
             onError: (error: string) => void;
         }
     ): Promise<void> {
-        const MAX_TOOL_TURNS = 5; // Same limit as sendMessage to prevent infinite loops
+        const MAX_TOOL_TURNS = 25; // Allow extensive tool chains while preventing true infinite loops
 
         try {
             const provider = this.getProvider();
@@ -439,6 +473,8 @@ class LLMService {
 
             if (turnCount >= MAX_TOOL_TURNS) {
                 console.warn(`[LLMService] Streaming ended: max tool turns (${MAX_TOOL_TURNS}) reached`);
+                // Provide graceful user feedback instead of freezing
+                callbacks.onChunk('\n\n*[System: Completed ' + turnCount + ' tool operations. If you need more actions, please send another message.]*');
             }
 
             callbacks.onComplete();

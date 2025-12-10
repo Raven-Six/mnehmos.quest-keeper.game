@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, memo } from 'react';
 import { ThreeEvent } from '@react-three/fiber';
 import { Edges } from '@react-three/drei';
 import { useCombatStore, type TerrainFeature } from '../../stores/combatStore';
@@ -6,60 +6,64 @@ import { TerrainTooltip } from './TerrainTooltip';
 
 interface TerrainProps {
   feature: TerrainFeature;
-  allTerrain: TerrainFeature[];
 }
 
-// Helper to check if two terrain pieces are adjacent
-function areAdjacent(t1: TerrainFeature, t2: TerrainFeature): boolean {
-  if (t1.type !== t2.type || t1.type !== 'wall') return false;
-  
-  const dx = Math.abs(t1.position.x - t2.position.x);
-  const dz = Math.abs(t1.position.z - t2.position.z);
-  const dy = Math.abs(t1.position.y - t2.position.y);
-  
-  // Adjacent if exactly 1 unit apart in x or z, and same y
-  return dy < 0.1 && ((dx === 1 && dz < 0.1) || (dz === 1 && dx < 0.1));
+interface WallGroupProps {
+  features: TerrainFeature[];
 }
 
-// Helper to find connected wall group
-function findConnectedWalls(start: TerrainFeature, all: TerrainFeature[]): TerrainFeature[] {
-  const visited = new Set<string>();
-  const group: TerrainFeature[] = [];
-  const queue = [start];
-  
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    if (visited.has(current.id)) continue;
-    
-    visited.add(current.id);
-    group.push(current);
-    
-    // Find all adjacent walls
-    for (const terrain of all) {
-      if (!visited.has(terrain.id) && areAdjacent(current, terrain)) {
-        queue.push(terrain);
-      }
-    }
+// Optimization: Cached geometry calculation helpers
+function getWallGeometry(walls: TerrainFeature[]) {
+  if (walls.length === 0) return null;
+
+  let minX = Infinity, maxX = -Infinity;
+  let minZ = Infinity, maxZ = -Infinity;
+  const positionsY = walls[0].position.y;
+  const height = walls[0].dimensions.height;
+
+  // Single pass bounds calculation
+  for (const w of walls) {
+    const halfWidth = w.dimensions.width / 2;
+    const halfDepth = w.dimensions.depth / 2;
+    minX = Math.min(minX, w.position.x - halfWidth);
+    maxX = Math.max(maxX, w.position.x + halfWidth);
+    minZ = Math.min(minZ, w.position.z - halfDepth);
+    maxZ = Math.max(maxZ, w.position.z + halfDepth);
   }
-  
-  return group;
+
+  const width = maxX - minX;
+  const depth = maxZ - minZ;
+  const centerX = (minX + maxX) / 2;
+  const centerZ = (minZ + maxZ) / 2;
+
+  return {
+    position: [centerX + 0.5, positionsY, centerZ + 0.5] as [number, number, number],
+    args: [width, height, depth] as [number, number, number],
+    center: { x: centerX, y: positionsY, z: centerZ },
+    dimensions: { width, height, depth }
+  };
 }
 
-export const Terrain: React.FC<TerrainProps> = ({ feature, allTerrain }) => {
+// Individual Terrain Component (Memoized)
+const SingleTerrain = memo(({ feature }: TerrainProps) => {
   const { dimensions, position, color, type } = feature;
-  const measureMode = useCombatStore((state) => state.measureMode);
-  const measureStart = useCombatStore((state) => state.measureStart);
-  const measureEnd = useCombatStore((state) => state.measureEnd);
-  const setMeasureStart = useCombatStore((state) => state.setMeasureStart);
-  const setMeasureEnd = useCombatStore((state) => state.setMeasureEnd);
-  const setClickedTileCoord = useCombatStore((state) => state.setClickedTileCoord);
-  const clickedTileCoord = useCombatStore((state) => state.clickedTileCoord);
-  const setCursorPosition = useCombatStore((state) => state.setCursorPosition);
-  const selectedTerrainId = useCombatStore((state) => state.selectedTerrainId);
-  const selectTerrain = useCombatStore((state) => state.selectTerrain);
   
+  // Selectors optimised to avoid re-renders
+  const measureMode = useCombatStore((s) => s.measureMode);
+  const selectedTerrainId = useCombatStore((s) => s.selectedTerrainId);
+  const selectTerrain = useCombatStore((s) => s.selectTerrain);
+  const setCursorPosition = useCombatStore((s) => s.setCursorPosition);
+  
+  // Action dispatchers (stable)
+  const setMeasureStart = useCombatStore((s) => s.setMeasureStart);
+  const setMeasureEnd = useCombatStore((s) => s.setMeasureEnd);
+  const setClickedTileCoord = useCombatStore((s) => s.setClickedTileCoord);
+  const clickedTileCoord = useCombatStore((s) => s.clickedTileCoord);
+  const measureStart = useCombatStore((s) => s.measureStart);
+  const measureEnd = useCombatStore((s) => s.measureEnd);
+
   const isSelected = selectedTerrainId === feature.id;
-  
+
   const handlePointerMove = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     const vizX = Math.floor(e.point.x);
@@ -84,111 +88,38 @@ export const Terrain: React.FC<TerrainProps> = ({ feature, allTerrain }) => {
         setMeasureEnd(null);
       }
     } else {
-      // Toggle terrain selection
       selectTerrain(isSelected ? null : feature.id);
-      
-      // Update clicked tile for LOS/Highlight
       if (clickedTileCoord && clickedTileCoord.x === mcpX && clickedTileCoord.y === mcpZ) {
         setClickedTileCoord(null);
       } else {
         setClickedTileCoord({ x: mcpX, y: mcpZ });
       }
     }
-    
-    console.log('[Terrain] Clicked:', feature.type, 'at', {x: vizX, z: vizZ});
   };
-  
-  // For walls, calculate connected geometry
-  const wallGeometry = useMemo(() => {
-    if (type !== 'wall') return null;
-    
-    const connectedWalls = findConnectedWalls(feature, allTerrain.filter(t => t.type === 'wall'));
-    
-    // Calculate bounding box for all connected walls
-    if (connectedWalls.length === 0) return null;
-    
-    const minX = Math.min(...connectedWalls.map(w => w.position.x - w.dimensions.width / 2));
-    const maxX = Math.max(...connectedWalls.map(w => w.position.x + w.dimensions.width / 2));
-    const minZ = Math.min(...connectedWalls.map(w => w.position.z - w.dimensions.depth / 2));
-    const maxZ = Math.max(...connectedWalls.map(w => w.position.z + w.dimensions.depth / 2));
-    
-    const centerX = (minX + maxX) / 2;
-    const centerZ = (minZ + maxZ) / 2;
-    const width = maxX - minX;
-    const depth = maxZ - minZ;
-    
-    return {
-      center: { x: centerX, y: position.y, z: centerZ },
-      dimensions: { width, height: dimensions.height, depth },
-      tiles: connectedWalls
-    };
-  }, [feature, allTerrain, type, position, dimensions]);
 
-  // For walls, render merged geometry
-  if (type === 'wall' && wallGeometry) {
-    // Only render if this is the "leader" wall in the group (by ID) to avoid duplicates
-    const isGroupLeader = wallGeometry.tiles.sort((a, b) => a.id.localeCompare(b.id))[0].id === feature.id;
-    
-    if (!isGroupLeader) return null;
-    
-    // Shift center by +0.5 to align with grid squares (0..1) instead of intersections
-    return (
-      <group onClick={handleClick} onPointerMove={handlePointerMove}>
-        <mesh position={[wallGeometry.center.x + 0.5, wallGeometry.center.y, wallGeometry.center.z + 0.5]} castShadow receiveShadow>
-          <boxGeometry args={[wallGeometry.dimensions.width, wallGeometry.dimensions.height, wallGeometry.dimensions.depth]} />
-          <meshStandardMaterial 
-            color={color}
-            roughness={0.8}
-            metalness={0.3}
-          />
-          <Edges color="#1a1a1a" linewidth={1.5} />
-        </mesh>
-        {isSelected && (
-          <group position={[wallGeometry.center.x, wallGeometry.center.y + wallGeometry.dimensions.height / 2 + 0.5, wallGeometry.center.z]}>
-            <TerrainTooltip feature={feature} />
-          </group>
-        )}
-      </group>
-    );
-  }
-
-  // Get material properties based on terrain type
   const getMaterialProps = () => {
     switch (type) {
-      case 'water':
-        return { roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.6 };
-      case 'difficult':
-        return { roughness: 0.9, metalness: 0.0, transparent: true, opacity: feature.opacity ?? 0.7 };
-      case 'obstacle':
-        return { roughness: 0.8, metalness: 0.2, transparent: false, opacity: 1.0 };
-      case 'elevation':
-      case 'floor':
-        return { roughness: 0.6, metalness: 0.1, transparent: true, opacity: feature.opacity ?? 0.5 };
-      case 'ceiling':
-        return { roughness: 0.4, metalness: 0.2, transparent: true, opacity: feature.opacity ?? 0.3 };
-      case 'prop':
-        return { roughness: 0.6, metalness: 0.1, transparent: false, opacity: 1.0, emissive: true };
-      default:
-        return { roughness: 0.7, metalness: 0.1, transparent: false, opacity: 1.0 };
+      case 'water': return { roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.6 };
+      case 'difficult': return { roughness: 0.9, metalness: 0.0, transparent: true, opacity: feature.opacity ?? 0.7 };
+      case 'obstacle': return { roughness: 0.8, metalness: 0.2, transparent: false, opacity: 1.0 };
+      case 'elevation': case 'floor': return { roughness: 0.6, metalness: 0.1, transparent: true, opacity: feature.opacity ?? 0.5 };
+      case 'ceiling': return { roughness: 0.4, metalness: 0.2, transparent: true, opacity: feature.opacity ?? 0.3 };
+      case 'prop': return { roughness: 0.6, metalness: 0.1, transparent: false, opacity: 1.0, emissive: color, emissiveIntensity: 0.5 };
+      default: return { roughness: 0.7, metalness: 0.1, transparent: false, opacity: 1.0 };
     }
   };
 
-  const materialProps = getMaterialProps();
+  const matProps = getMaterialProps();
 
-  // Render non-wall terrain with 2.5D styling
   return (
     <group onClick={handleClick} onPointerMove={handlePointerMove}>
       <mesh position={[position.x + 0.5, position.y, position.z + 0.5]} castShadow receiveShadow>
         <boxGeometry args={[dimensions.width, dimensions.height, dimensions.depth]} />
         <meshStandardMaterial 
           color={color}
-          roughness={materialProps.roughness}
-          metalness={materialProps.metalness}
-          transparent={materialProps.transparent}
-          opacity={materialProps.opacity}
+          {...matProps}
         />
-        {/* Add edge highlight for obstacles and props */}
-        {(type === 'obstacle' || type === 'wall' || type === 'prop') && (
+        {(type === 'obstacle' || type === 'prop') && (
           <Edges color="#1a1a1a" linewidth={1.5} />
         )}
       </mesh>
@@ -199,15 +130,126 @@ export const Terrain: React.FC<TerrainProps> = ({ feature, allTerrain }) => {
       )}
     </group>
   );
-};
+});
 
+// Merged Wall Group Component
+const WallGroup = memo(({ features }: WallGroupProps) => {
+  const geom = useMemo(() => getWallGeometry(features), [features]);
+  // Use the first feature for shared properties like color
+  const representative = features[0];
+  const selectedTerrainId = useCombatStore((s) => s.selectedTerrainId);
+  const selectTerrain = useCombatStore((s) => s.selectTerrain);
+  
+  // Check if ANY part of the wall is selected (by ID)
+  // Or just use the representative ID for selection of the whole block?
+  // Current logic selects individual IDs. Let's support selecting the group via the representative.
+  const isSelected = selectedTerrainId === representative.id;
+
+  if (!geom) return null;
+
+  return (
+    <group 
+      onClick={(e) => {
+        e.stopPropagation();
+        selectTerrain(isSelected ? null : representative.id);
+      }}
+    >
+      <mesh position={geom.position} castShadow receiveShadow>
+        <boxGeometry args={geom.args} />
+        <meshStandardMaterial 
+          color={representative.color}
+          roughness={0.8}
+          metalness={0.3}
+        />
+        <Edges color="#1a1a1a" linewidth={1.5} />
+      </mesh>
+      {isSelected && (
+        <group position={[geom.center.x, geom.center.y + geom.dimensions.height / 2 + 0.5, geom.center.z]}>
+          <TerrainTooltip feature={representative} />
+        </group>
+      )}
+    </group>
+  );
+});
+
+// Main Layer Component
 export const TerrainLayer: React.FC = () => {
   const terrain = useCombatStore((state) => state.terrain);
 
+  // Separate walls from other terrain for optimization
+  const { walls, others } = useMemo(() => {
+    const walls: TerrainFeature[] = [];
+    const others: TerrainFeature[] = [];
+    terrain.forEach(t => t.type === 'wall' ? walls.push(t) : others.push(t));
+    return { walls, others };
+  }, [terrain]);
+
+  // Group connected walls (Optimized: Linear pass with spatial map instead of O(N^2))
+  const wallGroups = useMemo(() => {
+    if (walls.length === 0) return [];
+
+    const groups: TerrainFeature[][] = [];
+    const visited = new Set<string>();
+    
+    // Spatial grid for fast adjacency lookup
+    const spatialMap = new Map<string, TerrainFeature>();
+    walls.forEach(w => spatialMap.set(`${Math.round(w.position.x)},${Math.round(w.position.z)},${Math.round(w.position.y)}`, w));
+
+    const getNeighbors = (t: TerrainFeature) => {
+      const neighbors: TerrainFeature[] = [];
+      const x = Math.round(t.position.x);
+      const z = Math.round(t.position.z);
+      const y = Math.round(t.position.y);
+
+      // Check cardinal directions
+      const keys = [
+        `${x+1},${z},${y}`,
+        `${x-1},${z},${y}`,
+        `${x},${z+1},${y}`,
+        `${x},${z-1},${y}`
+      ];
+
+      keys.forEach(k => {
+        const n = spatialMap.get(k);
+        if (n) neighbors.push(n);
+      });
+      return neighbors;
+    };
+
+    for (const wall of walls) {
+      if (visited.has(wall.id)) continue;
+
+      const group: TerrainFeature[] = [];
+      const queue = [wall];
+      visited.add(wall.id);
+
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        group.push(current);
+
+        const neighbors = getNeighbors(current);
+        for (const neighbor of neighbors) {
+          if (!visited.has(neighbor.id)) {
+            visited.add(neighbor.id);
+            queue.push(neighbor);
+          }
+        }
+      }
+      groups.push(group);
+    }
+    return groups;
+  }, [walls]);
+
   return (
     <>
-      {terrain.map((feature) => (
-        <Terrain key={feature.id} feature={feature} allTerrain={terrain} />
+      {/* Render optimized wall groups */}
+      {wallGroups.map((group) => (
+        <WallGroup key={`wall-group-${group[0].id}`} features={group} />
+      ))}
+      
+      {/* Render individual non-wall terrain */}
+      {others.map((feature) => (
+        <SingleTerrain key={feature.id} feature={feature} />
       ))}
     </>
   );

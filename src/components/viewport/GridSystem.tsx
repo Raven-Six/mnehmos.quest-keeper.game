@@ -218,7 +218,8 @@ export const GridSystem: React.FC = () => {
       
       {/* Infinite Grid from Drei */}
       <Grid 
-        position={[0, -0.01, 0]}
+        renderOrder={-1}
+        position={[0, -0.05, 0]}
         args={[gridSize, gridSize]} 
         cellSize={1} 
         cellThickness={1} 

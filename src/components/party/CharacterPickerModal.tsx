@@ -29,7 +29,9 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
   onClose,
   partyId,
 }) => {
-  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
+  // Multi-select state
+  const [selectedCharacters, setSelectedCharacters] = useState<Set<string>>(new Set());
+  
   const [selectedRole, setSelectedRole] = useState<MemberRole>('member');
   const [typeFilter, setTypeFilter] = useState<CharacterType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,7 +49,7 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       syncUnassignedCharacters();
-      setSelectedCharacter(null);
+      setSelectedCharacters(new Set());
       setSelectedRole('member');
       setSearchQuery('');
       setError(null);
@@ -76,9 +78,19 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
     return true;
   });
 
+  const toggleSelection = (charId: string) => {
+    const newSet = new Set(selectedCharacters);
+    if (newSet.has(charId)) {
+      newSet.delete(charId);
+    } else {
+      newSet.add(charId);
+    }
+    setSelectedCharacters(newSet);
+  };
+
   const handleAddMember = async () => {
-    if (!targetPartyId || !selectedCharacter) {
-      setError('Please select a character');
+    if (!targetPartyId || selectedCharacters.size === 0) {
+      setError('Please select at least one character');
       return;
     }
 
@@ -86,14 +98,27 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
     setError(null);
 
     try {
-      const success = await addMember(targetPartyId, selectedCharacter, selectedRole);
-      if (success) {
+      let successCount = 0;
+      const errors: string[] = [];
+
+      // Add all selected characters
+      for (const charId of selectedCharacters) {
+        try {
+          const success = await addMember(targetPartyId, charId, selectedRole);
+          if (success) successCount++;
+          else errors.push(`Failed to add character IDs ${charId}`);
+        } catch (e: any) {
+           errors.push(e.message || `Error adding ${charId}`);
+        }
+      }
+      
+      if (successCount === selectedCharacters.size) {
         onClose();
       } else {
-        setError('Failed to add member to party');
+         setError(`Added ${successCount}/${selectedCharacters.size} members. Errors: ${errors.join(', ')}`);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to add member');
+      setError(err.message || 'Failed to add members');
     } finally {
       setLoading(false);
     }
@@ -181,24 +206,24 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
               {filteredCharacters.map((char) => (
                 <button
                   key={char.id}
-                  onClick={() => setSelectedCharacter(char.id)}
+                  onClick={() => toggleSelection(char.id)}
                   className={`w-full p-3 text-left transition-colors ${
-                    selectedCharacter === char.id
+                    selectedCharacters.has(char.id)
                       ? 'bg-terminal-green/20'
                       : 'hover:bg-terminal-green/10'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    {/* Selection Indicator */}
+                    {/* Selection Indicator - CHECKBOX */}
                     <div
-                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
-                        selectedCharacter === char.id
+                      className={`w-5 h-5 border-2 flex items-center justify-center transition-all rounded ${
+                        selectedCharacters.has(char.id)
                           ? 'border-terminal-green bg-terminal-green'
                           : 'border-terminal-green/50'
                       }`}
                     >
-                      {selectedCharacter === char.id && (
-                        <div className="w-2 h-2 rounded-full bg-black" />
+                      {selectedCharacters.has(char.id) && (
+                         <span className="text-black font-bold text-xs">✓</span>
                       )}
                     </div>
 
@@ -243,12 +268,20 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
           )}
         </div>
 
-        {/* Role Selection (shown when character selected) */}
-        {selectedCharacter && (
+        {/* Role Selection (shown when ANY selected) */}
+        {selectedCharacters.size > 0 && (
           <div className="p-3 border-t border-terminal-green/20 bg-terminal-green/5">
-            <label className="block text-xs font-bold text-terminal-green/70 mb-2 uppercase">
-              Assign Role
-            </label>
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-xs font-bold text-terminal-green/70 uppercase">
+                Assign Role ({selectedCharacters.size})
+              </label>
+              <button 
+                 onClick={() => setSelectedCharacters(new Set())}
+                 className="text-xs text-terminal-green/50 hover:text-terminal-green underline cursor-pointer"
+              >
+                 Clear
+              </button>
+            </div>
             <div className="grid grid-cols-3 gap-2">
               {ROLE_OPTIONS.map((role) => (
                 <button
@@ -287,7 +320,7 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
           <div className="flex-1" />
           <button
             onClick={handleAddMember}
-            disabled={!selectedCharacter || loading}
+            disabled={selectedCharacters.size === 0 || loading}
             className="px-6 py-2 bg-terminal-green text-black font-bold rounded-lg hover:bg-terminal-green-bright transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(0,255,0,0.3)] flex items-center gap-2"
           >
             {loading ? (
@@ -296,7 +329,7 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
                 Adding...
               </>
             ) : (
-              <>+ Add to Party</>
+              <>+ Add {selectedCharacters.size > 0 ? `(${selectedCharacters.size})` : ''} to Party</>
             )}
           </button>
         </div>

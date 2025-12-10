@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Line } from '@react-three/drei';
+import { Line, Html } from '@react-three/drei';
 import { useCombatStore } from '../../stores/combatStore';
 import { getElevationAt } from '../../utils/gridHelpers';
 
@@ -14,6 +14,28 @@ export const LineOfSight: React.FC = () => {
   const source = useMemo(() => {
     return entities.find(e => e.id === selectedEntityId) || entities.find(e => e.type === 'character');
   }, [entities, selectedEntityId]);
+
+  // Show instruction popup if LOS is enabled but no entity selected
+  if (showLineOfSight && !selectedEntityId && entities.length > 0) {
+    return (
+      <Html center position={[0, 3, 0]} style={{ pointerEvents: 'none' }}>
+        <div 
+          className="font-mono text-center p-3 rounded animate-pulse"
+          style={{
+            backgroundColor: 'rgba(0, 20, 0, 0.9)',
+            border: '1px solid #00ff41',
+            color: '#00ff41',
+            boxShadow: '0 0 15px rgba(0, 255, 65, 0.3)',
+            minWidth: '220px'
+          }}
+        >
+          <div className="text-sm font-bold mb-1">👁️ LINE OF SIGHT</div>
+          <div className="text-xs opacity-80">Click an entity to view</div>
+          <div className="text-xs opacity-80">their sight lines</div>
+        </div>
+      </Html>
+    );
+  }
 
   if (!showLineOfSight || !source) return null;
 

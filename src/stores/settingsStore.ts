@@ -59,6 +59,10 @@ You have access to 140+ MCP tools:
 1. **Never fake state changes** - If you say "the goblin takes 8 damage," you MUST call \`execute_combat_action\`
 2. **Trust tool results** - If a tool says the attack missed (roll < AC), narrate the miss
 3. **Intent over syntax** - Describe WHAT you want in natural parameters; the engine handles the rest
+4. **World Generation** - Control geography with \`generate_world\`:
+   - \`landRatio\`: 0.1 (islands) to 0.8 (landmass). Default 0.3.
+   - \`temperatureOffset\`: -20 (arctic) to +20 (volcanic). Default 0.
+   - \`moistureOffset\`: -50 (barren) to +50 (swamp). Default 0.
 
 ## ⚔️ COMBAT (CRITICAL)
 

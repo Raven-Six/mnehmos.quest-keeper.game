@@ -205,6 +205,8 @@ interface GameState {
   lastSyncTime: number;
   // Selection lock prevents syncState from overriding user's explicit selection
   selectionLocked: boolean;
+  // Cache inventory per character ID for instant switching
+  inventoryCache: Record<string, InventoryItem[]>;
 
   setInventory: (items: InventoryItem[]) => void;
   setWorldState: (state: WorldState) => void;
@@ -489,6 +491,7 @@ export const useGameStateStore = create<GameState>()(
   persist(
     (set, get) => ({
       inventory: [],
+      inventoryCache: {} as Record<string, InventoryItem[]>, // Cache inventory per character ID
       worlds: [],
       world: {
         time: 'Unknown',
@@ -509,16 +512,29 @@ export const useGameStateStore = create<GameState>()(
       lastSyncTime: 0,
       selectionLocked: false,
 
-      setInventory: (items) => set({ inventory: items }),
+      setInventory: (items) => set((state) => {
+        const charId = state.activeCharacterId;
+        // Cache inventory when setting it
+        const newCache = charId 
+          ? { ...state.inventoryCache, [charId]: items }
+          : state.inventoryCache;
+        return { inventory: items, inventoryCache: newCache };
+      }),
       setWorldState: (state) => set({ world: state }),
       setNotes: (notes) => set({ notes }), // DEPRECATED
       setQuests: (quests) => set({ quests }),
       setActiveCharacter: (char) => set({ activeCharacter: char }),
-      setActiveCharacterId: (id, lock = true) => set((state) => ({
-        activeCharacterId: id,
-        activeCharacter: state.party.find((c) => c.id === id) || state.activeCharacter,
-        selectionLocked: lock ? true : state.selectionLocked
-      })),
+      setActiveCharacterId: (id, lock = true) => set((state) => {
+        const newChar = state.party.find((c) => c.id === id) || null;
+        // Use cached inventory if available for instant switch, otherwise empty to prevent ghosting
+        const cachedInventory = id ? state.inventoryCache[id] : undefined;
+        return {
+          activeCharacterId: id,
+          activeCharacter: newChar,
+          inventory: cachedInventory || [], // Use cache or default to empty (not stale state.inventory)
+          selectionLocked: lock ? true : state.selectionLocked
+        };
+      }),
       setActiveWorldId: (id, lock = true) => set((state) => ({
         activeWorldId: id,
         selectionLocked: lock ? true : state.selectionLocked

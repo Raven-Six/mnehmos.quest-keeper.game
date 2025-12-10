@@ -3,9 +3,10 @@ import { create } from 'zustand';
 interface HudState {
   // Panel Visibility
   isInventoryOpen: boolean;
+  isSpellbookOpen: boolean;
   isRestPanelOpen: boolean;
   isLootPanelOpen: boolean;
-  activePanel: 'none' | 'character' | 'inventory' | 'party';
+  activePanel: 'none' | 'character' | 'inventory' | 'spellbook' | 'party';
   
   // Selection mirrors combatStore but manages UI-specifics
   selectedEntityId: string | null;
@@ -15,6 +16,7 @@ interface HudState {
 
   // Actions
   toggleInventory: () => void;
+  toggleSpellbook: () => void;
   toggleRestPanel: () => void;
   toggleLootPanel: () => void;
   setActivePanel: (panel: HudState['activePanel']) => void;
@@ -26,6 +28,7 @@ interface HudState {
 
 export const useHudStore = create<HudState>((set) => ({
   isInventoryOpen: false,
+  isSpellbookOpen: false,
   isRestPanelOpen: false,
   isLootPanelOpen: false,
   activePanel: 'none',
@@ -34,7 +37,14 @@ export const useHudStore = create<HudState>((set) => ({
 
   toggleInventory: () => set((state) => ({ 
     isInventoryOpen: !state.isInventoryOpen,
+    isSpellbookOpen: false, // Close spellbook when opening inventory
     activePanel: !state.isInventoryOpen ? 'inventory' : 'none'
+  })),
+
+  toggleSpellbook: () => set((state) => ({ 
+    isSpellbookOpen: !state.isSpellbookOpen,
+    isInventoryOpen: false, // Close inventory when opening spellbook
+    activePanel: !state.isSpellbookOpen ? 'spellbook' : 'none'
   })),
 
   toggleRestPanel: () => set((state) => ({ 
@@ -51,4 +61,3 @@ export const useHudStore = create<HudState>((set) => ({
   
   setQuickActionText: (text) => set({ quickActionText: text })
 }));
-

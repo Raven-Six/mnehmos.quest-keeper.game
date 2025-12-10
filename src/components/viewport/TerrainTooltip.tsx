@@ -22,28 +22,36 @@ export const TerrainTooltip: React.FC<TerrainTooltipProps> = ({ feature }) => {
         userSelect: 'none',
       }}
     >
-      <div className="bg-terminal-black/90 border border-yellow-500 text-yellow-300 font-mono text-xs p-2 rounded shadow-[0_0_10px_rgba(255,200,0,0.3)] min-w-[150px]">
+      <div 
+        className="font-mono text-xs p-2 rounded min-w-[150px]"
+        style={{ 
+          backgroundColor: 'rgba(10, 10, 10, 0.95)', 
+          border: '1px solid #eab308',
+          color: '#fde047',
+          boxShadow: '0 0 10px rgba(255,200,0,0.3)'
+        }}
+      >
         {/* Header */}
-        <div className="border-b border-yellow-500/50 pb-1 mb-2">
-          <div className="font-bold text-sm text-glow uppercase">{displayName}</div>
-          {label && <div className="text-[10px] text-yellow-300/60 capitalize">{type}</div>}
+        <div style={{ borderBottom: '1px solid rgba(234, 179, 8, 0.5)', paddingBottom: '4px', marginBottom: '8px' }}>
+          <div className="font-bold text-sm uppercase" style={{ textShadow: '0 0 5px #fde047' }}>{displayName}</div>
+          {label && <div className="text-[10px]" style={{ color: 'rgba(253, 224, 71, 0.6)' }}>{type}</div>}
         </div>
 
         {/* Properties Grid */}
         <div className="space-y-1 text-[10px]">
           <div className="flex justify-between">
-            <span className="text-yellow-300/70">Size:</span>
+            <span style={{ color: 'rgba(253, 224, 71, 0.7)' }}>Size:</span>
             <span>{dimensions.width}×{dimensions.depth}×{dimensions.height} units</span>
           </div>
           
           {blocksMovement && (
-            <div className="text-red-400">
+            <div style={{ color: '#f87171' }}>
               🚫 Blocks Movement
             </div>
           )}
           
           {coverType && coverType !== 'none' && (
-            <div className="text-blue-400">
+            <div style={{ color: '#60a5fa' }}>
               🛡️ {coverType} Cover
             </div>
           )}

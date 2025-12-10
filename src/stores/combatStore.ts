@@ -16,6 +16,10 @@ export interface EntityMetadata {
   ac: number;
   creatureType: string;
   conditions: string[];
+  // New fields for richer entity popup
+  speed?: number;      // Movement speed in feet
+  initiative?: number; // Initiative roll value
+  size?: string;       // Creature size (tiny, small, medium, large, huge, gargantuan)
   stats?: {
     str: number;
     dex: number;
@@ -380,7 +384,11 @@ function stateJsonToEntities(data: EncounterStateJson, gridConfig: GridConfig, t
         },
         ac: 10, // Default AC
         creatureType: type,
-        conditions: finalConditions
+        conditions: finalConditions,
+        // New metadata fields
+        speed: p.movementSpeed,
+        initiative: p.initiative,
+        size: p.size
       }
     };
     
@@ -425,7 +433,7 @@ function stateJsonToTerrain(data: EncounterStateJson): TerrainFeature[] {
     const pos = parsePos(rawPos as any);
     if (!pos) return;
     
-    console.log(`[stateJsonToTerrain] Obstacle ${i}: MCP (${pos.x},${pos.y}) -> viz (${pos.x - 10},${pos.y - 10})`);
+    // Removed per-element logging to reduce console spam
     terrain.push({
       id: `obstacle-${i}`,
       type: 'obstacle',
@@ -445,7 +453,7 @@ function stateJsonToTerrain(data: EncounterStateJson): TerrainFeature[] {
     const pos = parsePos(rawPos as any);
     if (!pos) return;
     
-    console.log(`[stateJsonToTerrain] Difficult ${i}: MCP (${pos.x},${pos.y}) -> viz (${pos.x - 10},${pos.y - 10})`);
+    // Removed per-element logging to reduce console spam
     terrain.push({
       id: `difficult-${i}`,
       type: 'difficult',
@@ -464,7 +472,7 @@ function stateJsonToTerrain(data: EncounterStateJson): TerrainFeature[] {
     const pos = parsePos(rawPos as any);
     if (!pos) return;
     
-    console.log(`[stateJsonToTerrain] Water ${i}: MCP (${pos.x},${pos.y}) -> viz (${pos.x - 10},${pos.y - 10})`);
+    // Removed per-element logging to reduce console spam
     terrain.push({
       id: `water-${i}`,
       type: 'water',
@@ -517,7 +525,7 @@ function stateJsonToTerrain(data: EncounterStateJson): TerrainFeature[] {
       'none': 'none'
     };
     
-    console.log(`[stateJsonToTerrain] Prop ${i}: "${prop.label}" MCP (${x},${y}) -> viz (${x - 10},${y - 10})`);
+    // Removed per-element logging to reduce console spam
     terrain.push({
       id: prop.id || `prop-${i}`,
       type: 'prop' as any,  // Extended type
