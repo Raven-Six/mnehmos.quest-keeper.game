@@ -867,7 +867,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
              set({ consecutiveSkips: 0 });
         }
     }
-  }
+  },
 
   // Aura management
   setAuras: (auras) => set({ auras }),
