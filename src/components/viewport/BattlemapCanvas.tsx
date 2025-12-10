@@ -7,7 +7,6 @@ import { EntityLayer } from './EntityLayer';
 import { TerrainLayer } from './Terrain';
 import { AuraLayer } from './AuraLayer';
 import { LineOfSight } from './LineOfSight';
-import { VisualizationControls } from './VisualizationControls';
 import { CombatHUD } from '../hud/CombatHUD';
 import { useCombatStore } from '../../stores/combatStore';
 
@@ -31,7 +30,6 @@ export const BattlemapCanvas: React.FC = () => {
         </div>
       )}
       
-      <VisualizationControls />
       
       {/* Combat HUD Overlay */}
       <CombatHUD />

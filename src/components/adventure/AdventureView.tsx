@@ -125,7 +125,7 @@ const QuickStats = () => {
                                             setActiveWorldId(e.target.value || null);
                                             useGameStateStore.getState().syncState(true);
                                         }}
-                                        className="flex-1 min-w-0 bg-black border border-terminal-green text-terminal-green text-xs px-2 py-1 rounded focus:outline-none focus:border-terminal-green-bright truncate"
+                                        className="flex-1 min-w-0 bg-terminal-dim border border-terminal-green-dim text-terminal-green text-xs px-2 py-1 rounded focus:outline-none focus:border-terminal-green-bright truncate"
                                     >
                                         {worlds.map((w: any) => (
                                             <option key={w.id} value={w.id}>

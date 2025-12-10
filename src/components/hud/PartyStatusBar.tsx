@@ -4,7 +4,7 @@ import { ConditionList } from '../common/ConditionBadge';
 
 /**
  * Displays status of party members.
- * Terminal-styled party status.
+ * Uses theme-aware styling.
  */
 export const PartyStatusBar: React.FC = () => {
   const party = useGameStateStore(s => s.party);
@@ -15,7 +15,7 @@ export const PartyStatusBar: React.FC = () => {
   return (
     <div className="flex flex-col gap-2 p-4 animate-fade-in-up">
        {/* Header */}
-       <div className="text-[10px] text-green-700 font-mono font-bold tracking-widest uppercase mb-2 pl-1">Party Roster</div>
+       <div className="text-[10px] text-terminal-green-dim font-mono font-bold tracking-widest uppercase mb-2 pl-1">Party Roster</div>
        
        {party.map((char: CharacterStats) => {
          const isActive = char.id === activeCharacterId;
@@ -25,33 +25,33 @@ export const PartyStatusBar: React.FC = () => {
            <div 
              key={char.id}
              className={`
-               p-3 border transition-colors w-56 font-mono rounded-sm relative overflow-hidden group
+               p-3 border-2 transition-colors w-56 font-mono rounded-sm relative overflow-hidden group
                ${isActive 
-                 ? 'bg-green-900/20 border-green-500 shadow-[0_0_15px_rgba(0,255,65,0.1)]' 
-                 : 'bg-black/80 border-green-900/30 hover:border-green-700'}
+                 ? 'bg-terminal-dim border-terminal-green-bright ring-2 ring-terminal-green-bright/50' 
+                 : 'bg-terminal-dim/90 border-terminal-green-dim hover:border-terminal-green/50'}
              `}
            >
-             {/* Scanline effect overlay */}
-             <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-0 pointer-events-none opacity-20" size-4px />
+             {/* Scanline effect overlay - only visible in terminal theme */}
+             <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-0 pointer-events-none opacity-20 data-[theme=light]:opacity-0 data-[theme=fantasy]:opacity-0" size-4px />
 
              <div className="relative z-10">
-                <div className="flex justify-between items-center mb-2 border-b border-green-900/30 pb-1">
-                    <span className={`font-bold text-sm truncate uppercase ${isActive ? 'text-green-300' : 'text-green-600'}`}>
+                <div className="flex justify-between items-center mb-2 border-b border-terminal-green-dim pb-1">
+                    <span className={`font-bold text-sm truncate uppercase ${isActive ? 'text-terminal-green-bright' : 'text-terminal-green'}`}>
                         {char.name}
                     </span>
-                    <span className="text-[10px] text-green-800">LVL {char.level}</span>
+                    <span className="text-[10px] text-terminal-green-dim">LVL {char.level}</span>
                 </div>
                 
                 {/* HP Bar */}
-                <div className="w-full bg-green-900/20 h-1.5 border border-green-900/30 mb-1.5">
+                <div className="w-full bg-terminal-green-dim/20 h-1.5 border border-terminal-green-dim mb-1.5">
                     <div 
-                    className={`h-full transition-all duration-500 ${hpPercent < 30 ? 'bg-red-500' : 'bg-green-500'}`}
+                    className={`h-full transition-all duration-500 ${hpPercent < 30 ? 'bg-terminal-red' : 'bg-terminal-green'}`}
                     style={{ width: `${hpPercent}%` }}
                     />
                 </div>
                 <div className="flex justify-between text-[10px] uppercase tracking-wider">
-                    <span className="text-green-500">HP {char.hp.current}/{char.hp.max}</span>
-                    <span className="text-green-600">AC {char.armorClass || 10}</span>
+                    <span className="text-terminal-green">HP {char.hp.current}/{char.hp.max}</span>
+                    <span className="text-terminal-green-dim">AC {char.armorClass || 10}</span>
                 </div>
                 {char.conditions && char.conditions.length > 0 && (
                   <div className="mt-2 text-left">

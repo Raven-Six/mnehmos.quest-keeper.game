@@ -3,8 +3,75 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Default (Terminal) Theme Variables - RGB format for opacity support */
+    --bg-primary: 10 10 10;
+    --bg-secondary: 26 26 26;
+
+    --text-primary: 0 255 65;
+    --text-secondary: 0 51 0;
+    --text-highlight: 64 255 112;
+
+    --color-amber: 255 176 0;
+    --color-cyan: 0 240 255;
+    --color-purple: 191 95 255;
+    --color-red: 255 68 68;
+
+    /* Semantic Mappings for specific UI elements if needed */
+    --scanline-color: rgba(0, 0, 0, 0.2);
+    --glow-color: rgba(0, 255, 65, 0.5);
+
+    --scrollbar-track: rgba(0, 255, 65, 0.05);
+    --scrollbar-thumb: rgba(0, 255, 65, 0.3);
+    --scrollbar-thumb-hover: rgba(0, 255, 65, 0.5);
+  }
+
+  /* Fantasy Theme */
+  [data-theme="fantasy"] {
+    --bg-primary: 240 230 210; /* Parchment */
+    --bg-secondary: 230 220 200; /* Darker Parchment */
+
+    --text-primary: 44 36 27; /* Ink Black */
+    --text-secondary: 140 128 110; /* Faded Ink / Borders - improved contrast */
+    --text-highlight: 139 0 0; /* Crimson highlight */
+
+    --color-amber: 176 141 0; /* Gold */
+    --color-cyan: 0 139 139; /* Dark Cyan */
+    --color-purple: 128 0 128; /* Royal Purple */
+    --color-red: 139 0 0; /* Blood Red */
+
+    --scanline-color: rgba(44, 36, 27, 0.05);
+    --glow-color: rgba(139, 0, 0, 0.1);
+
+    --scrollbar-track: rgba(44, 36, 27, 0.05);
+    --scrollbar-thumb: rgba(44, 36, 27, 0.2);
+    --scrollbar-thumb-hover: rgba(44, 36, 27, 0.4);
+  }
+
+  /* Light (Claude-inspired) Theme */
+  [data-theme="light"] {
+    --bg-primary: 250 248 246; /* Warm Off-White */
+    --bg-secondary: 240 239 235; /* Light Warm Gray */
+
+    --text-primary: 45 45 45; /* Charcoal */
+    --text-secondary: 122 116 108; /* Medium Gray for better contrast */
+    --text-highlight: 218 119 86; /* Terracotta */
+
+    --color-amber: 217 119 6; /* Warm Amber */
+    --color-cyan: 8 145 178; /* Muted Cyan */
+    --color-purple: 147 51 234; /* Muted Purple */
+    --color-red: 220 38 38; /* Warm Red */
+
+    --scanline-color: transparent;
+    --glow-color: rgba(218, 119, 86, 0.1);
+
+    --scrollbar-track: rgba(45, 45, 45, 0.05);
+    --scrollbar-thumb: rgba(45, 45, 45, 0.15);
+    --scrollbar-thumb-hover: rgba(45, 45, 45, 0.25);
+  }
+
   body {
-    @apply bg-terminal-black text-terminal-green font-mono overflow-hidden;
+    @apply bg-terminal-black text-terminal-green font-mono overflow-hidden transition-colors duration-300;
   }
 }
 
@@ -14,8 +81,8 @@
       to bottom,
       rgba(255, 255, 255, 0),
       rgba(255, 255, 255, 0) 50%,
-      rgba(0, 0, 0, 0.2) 50%,
-      rgba(0, 0, 0, 0.2)
+      var(--scanline-color) 50%,
+      var(--scanline-color)
     );
     background-size: 100% 4px;
     pointer-events: none;
@@ -25,14 +92,21 @@
     bottom: 0;
     left: 0;
     z-index: 50;
+    /* Disable scanline in light themes if desired, or keep generic */
+  }
+
+  [data-theme="light"] .scanline,
+  [data-theme="fantasy"] .scanline {
+    display: none; /* Clean look for non-terminal themes */
   }
 
   .text-glow {
-    text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+    text-shadow: 0 0 5px var(--glow-color);
   }
 
   .markdown-content pre {
-    @apply bg-terminal-black/80 border border-terminal-green-dim rounded p-3 my-2 overflow-x-auto;
+    @apply border border-terminal-green-dim rounded p-3 my-2 overflow-x-auto;
+    background-color: color-mix(in srgb, var(--bg-secondary) 50%, transparent);
   }
 
   .markdown-content code {
@@ -49,7 +123,8 @@
   }
 
   .markdown-content th {
-    @apply bg-terminal-black/50 font-bold;
+    @apply font-bold;
+    background-color: color-mix(in srgb, var(--bg-secondary) 50%, transparent);
   }
 
   .markdown-content a {
@@ -68,14 +143,20 @@
 /* Streaming cursor animation */
 .streaming-cursor {
   animation: blink 0.7s infinite;
-  color: var(--terminal-green, #00ff41);
+  color: var(--text-primary);
   display: inline-block;
   margin-left: 1px;
 }
 
 @keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
 }
 
 /* Streaming text container - optimized for frequent updates */
@@ -120,7 +201,7 @@
     animation: none;
     opacity: 1;
   }
-  
+
   .smooth-transition {
     transition: none;
   }
@@ -169,21 +250,21 @@
 }
 
 .chat-messages-container::-webkit-scrollbar-track {
-  background: rgba(0, 255, 65, 0.05);
+  background: var(--scrollbar-track);
   border-radius: 4px;
 }
 
 .chat-messages-container::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 65, 0.3);
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
 .chat-messages-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 255, 65, 0.5);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Firefox scrollbar */
 .chat-messages-container {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 255, 65, 0.3) rgba(0, 255, 65, 0.05);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }

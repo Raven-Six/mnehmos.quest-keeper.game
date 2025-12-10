@@ -1,10 +1,47 @@
-import React, { useMemo } from 'react';
-import { Html, Line, Edges } from '@react-three/drei';
-import { ThreeEvent } from '@react-three/fiber';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Html, Line, Edges, Grid, Text } from '@react-three/drei';
+import { ThreeEvent, useThree } from '@react-three/fiber';
 import { useCombatStore } from '../../stores/combatStore';
 import { isTileBlocked, getElevationAt, calculateDistance3D } from '../../utils/gridHelpers';
+import { useTheme } from '../../context/ThemeContext';
+
+// Theme-specific color palettes for the 3D grid
+const GRID_THEMES = {
+  terminal: {
+    cellColor: '#003300',
+    sectionColor: '#00ff41',
+    ground: '#0a0a0a',
+    highlight: '#00ff41',
+    highlightBlocked: '#ff0000',
+    compass: '#00ff41',
+    compassNorth: '#ff4444',
+  },
+  fantasy: {
+    cellColor: '#2c1810',
+    sectionColor: '#8b4513',
+    ground: '#1e1610',
+    highlight: '#d4af37',
+    highlightBlocked: '#8b0000',
+    compass: '#d4af37',
+    compassNorth: '#8b0000',
+  },
+  light: {
+    cellColor: '#e5e5e5',
+    sectionColor: '#da7756',
+    ground: '#f0f0f0',
+    highlight: '#da7756',
+    highlightBlocked: '#dc2626',
+    compass: '#da7756',
+    compassNorth: '#dc2626',
+  },
+};
 
 export const GridSystem: React.FC = () => {
+  const { theme } = useTheme();
+  // Safe fallback to 'terminal' if theme is undefined or invalid
+  const activeTheme = theme && GRID_THEMES[theme] ? theme : 'terminal';
+  const colors = GRID_THEMES[activeTheme];
+  
   const entities = useCombatStore((state) => state.entities);
   const terrain = useCombatStore((state) => state.terrain);
   const setClickedTileCoord = useCombatStore((state) => state.setClickedTileCoord);
@@ -52,17 +89,33 @@ export const GridSystem: React.FC = () => {
   }, [entities, terrain]);
   
   const gridSize = Math.max(bounds.gridSize, 100);
-  const divisions = Math.max(bounds.gridSize, 100);
   const labels: React.ReactElement[] = [];
   
   // Helper to convert MCP coord to visualizer coord  
   const toViz = (mcpCoord: number) => mcpCoord - 10;
   
+  const { controls } = useThree() as any;
+  const [compassPos, setCompassPos] = useState<{x: number, z: number} | null>(null);
+  const [compassRotation, setCompassRotation] = useState(0);
+  const [isDraggingCompass, setIsDraggingCompass] = useState(false);
+  const [isRotatingCompass, setIsRotatingCompass] = useState(false);
+
+  // Disable OrbitControls/Pan when dragging/rotating compass
+  useEffect(() => {
+    if (controls) {
+      controls.enabled = !isDraggingCompass && !isRotatingCompass;
+    }
+  }, [controls, isDraggingCompass, isRotatingCompass]);
+
+  const compassPosition: [number, number, number] = useMemo(() => {
+    if (compassPos) return [compassPos.x, 1.5, compassPos.z];
+    return [toViz(bounds.maxX - 5), 1.5, toViz(bounds.minZ + 5)];
+  }, [compassPos, bounds]);
+
+  const measureMode = useCombatStore((state) => state.measureMode);
   // REMOVED: Numbered axis labels per user request
   // The grid lines themselves provide visual reference
   // Compass rose provides orientation
-
-  const measureMode = useCombatStore((state) => state.measureMode);
   const measureStart = useCombatStore((state) => state.measureStart);
   const measureEnd = useCombatStore((state) => state.measureEnd);
   const cursorPosition = useCombatStore((state) => state.cursorPosition);
@@ -106,46 +159,212 @@ export const GridSystem: React.FC = () => {
 
   const onPointerMove = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
+    
+    // Handle Compass Dragging with Snap-to-Grid
+    if (isDraggingCompass) {
+      setCompassPos({ 
+        x: Math.round(e.point.x), 
+        z: Math.round(e.point.z) 
+      });
+      return;
+    }
+    
+    // Handle Compass Rotation
+    if (isRotatingCompass) {
+        const cx = compassPosition[0];
+        const cz = compassPosition[2];
+        const dx = e.point.x - cx;
+        const dz = e.point.z - cz;
+        // atan2(x, z) gives rotation relative to Z axis
+        let angle = Math.atan2(dx, dz);
+        // Add PI to flip 180 if needed (Trial: North is -Z)
+        // atan2(0, -1) = PI. We want 0 if North. 
+        // Actually, if we just set rotation to angle, it will follow mouse.
+        setCompassRotation(angle + Math.PI); 
+        return;
+    }
+    
     const vizX = Math.floor(e.point.x);
     const vizZ = Math.floor(e.point.z);
     setCursorPosition({ x: vizX, y: vizZ });
   };
 
+  const onPointerUp = (e: ThreeEvent<MouseEvent>) => {
+    if (isDraggingCompass || isRotatingCompass) {
+      e.stopPropagation();
+      setIsDraggingCompass(false);
+      setIsRotatingCompass(false);
+    }
+  };
+
   return (
     <group>
-      {/* Visible Ground Plane - Earth tones (tan, green, brown) */}
+      {/* Background Plane */}
       <mesh 
         rotation={[-Math.PI / 2, 0, 0]} 
-        position={[0, -0.02, 0]} 
+        position={[0, -0.1, 0]} 
         receiveShadow
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onClick={onPlaneClick}
       >
         <planeGeometry args={[gridSize, gridSize]} />
         <meshStandardMaterial 
-          color="#3d3228"  // Dark earthy brown base
-          roughness={0.95} 
-          metalness={0.0}
+          color={colors.ground}
+          roughness={1} 
+          metalness={0}
         />
       </mesh>
       
-      {/* Grid overlay - terminal green aesthetic */}
-      <gridHelper args={[gridSize, divisions, '#00ff41', '#1a1a1a']} />
+      {/* Infinite Grid from Drei */}
+      <Grid 
+        position={[0, -0.01, 0]}
+        args={[gridSize, gridSize]} 
+        cellSize={1} 
+        cellThickness={1} 
+        cellColor={colors.cellColor} 
+        sectionSize={5} 
+        sectionThickness={1.5} 
+        sectionColor={colors.sectionColor} 
+        fadeDistance={100} 
+        fadeStrength={1} 
+        infiniteGrid 
+      />
       
       {labels}
       
-      {/* Compass Rose */}
-      <group position={[toViz(bounds.maxX - 5), 0.2, toViz(bounds.minZ + 5)]}>
-        <Html position={[0, 0, -3]} center style={{ color: '#ff4444', fontSize: '16px', fontFamily: 'monospace', fontWeight: 'bold', pointerEvents: 'none', userSelect: 'none', textShadow: '0 0 4px #ff4444' }}>N</Html>
-        <Html position={[3, 0, 0]} center style={{ color: '#00ff41', fontSize: '14px', fontFamily: 'monospace', pointerEvents: 'none', userSelect: 'none' }}>E</Html>
-        <Html position={[0, 0, 3]} center style={{ color: '#00ff41', fontSize: '14px', fontFamily: 'monospace', pointerEvents: 'none', userSelect: 'none' }}>S</Html>
-        <Html position={[-3, 0, 0]} center style={{ color: '#00ff41', fontSize: '14px', fontFamily: 'monospace', pointerEvents: 'none', userSelect: 'none' }}>W</Html>
-        <mesh position={[0, 0, 0]}>
-          <cylinderGeometry args={[0.3, 0.3, 0.1, 16]} />
-          <meshStandardMaterial color="#00ff41" emissive="#00ff41" emissiveIntensity={0.5} />
+      {/* 3D Compass Asset - Pocket Compass Style */}
+      <group 
+        position={compassPosition}
+        onPointerOver={() => document.body.style.cursor = 'grab'}
+        onPointerOut={() => document.body.style.cursor = 'default'}
+      >
+        {/* Shadow/Grounding - Stays Fixed or follows Pos */}
+        <mesh position={[0, -0.3, 0]} rotation={[-Math.PI/2, 0, 0]}>
+          <circleGeometry args={[2.2, 32]} />
+          <meshBasicMaterial color="#000" opacity={0.4} transparent />
         </mesh>
-        <mesh position={[0, 0.1, -1.5]} rotation={[Math.PI / 2, 0, 0]}>
-          <coneGeometry args={[0.4, 1.2, 3]} />
-          <meshStandardMaterial color="#ff4444" emissive="#ff4444" emissiveIntensity={0.8} />
-        </mesh>
+
+        {/* ROTATABLE CASE GROUP */}
+        <group rotation={[0, compassRotation, 0]}>
+          
+          {/* Compass Case (Base) - Drag Handle */}
+          <mesh 
+            position={[0, -0.1, 0]} 
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              setIsDraggingCompass(true);
+            }}
+          >
+            <cylinderGeometry args={[2, 2, 0.2, 32]} />
+            <meshStandardMaterial color={colors.compass} metalness={0.7} roughness={0.2} />
+          </mesh>
+
+          {/* Compass Face (Background) - Drag Handle */}
+          <mesh 
+            position={[0, 0.01, 0]} 
+            rotation={[-Math.PI/2, 0, 0]}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              setIsDraggingCompass(true);
+            }}
+          >
+            <circleGeometry args={[1.8, 32]} />
+            <meshStandardMaterial color={colors.ground} roughness={0.9} />
+          </mesh>
+
+          {/* Compass Rim (Wall) - ROTATION HANDLE */}
+          <mesh 
+            position={[0, 0.1, 0]} 
+            rotation={[-Math.PI / 2, 0, 0]}
+            onPointerDown={(e) => {
+               e.stopPropagation();
+               setIsRotatingCompass(true);
+            }}
+            onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'ew-resize'; }}
+            onPointerOut={(e) => { e.stopPropagation(); document.body.style.cursor = 'grab'; }}
+          >
+            <torusGeometry args={[2, 0.1, 16, 64]} />
+            <meshStandardMaterial color={colors.compass} metalness={0.7} roughness={0.2} />
+          </mesh>
+
+          {/* Cardinal Direction Labels - Attached to Case */}
+          <Text 
+            position={[0, 0.05, -1.5]} 
+            rotation={[-Math.PI / 2, 0, 0]} 
+            fontSize={0.6} 
+            color={colors.compassNorth}
+            anchorX="center" 
+            anchorY="middle"
+            outlineWidth={0.02}
+            outlineColor={colors.ground}
+          >
+            N
+          </Text>
+          <Text 
+            position={[1.5, 0.05, 0]} 
+            rotation={[-Math.PI / 2, 0, 0]} 
+            fontSize={0.4} 
+            color={colors.compass}
+            anchorX="center" 
+            anchorY="middle"
+          >
+            E
+          </Text>
+          <Text 
+            position={[0, 0.05, 1.5]} 
+            rotation={[-Math.PI / 2, 0, 0]} 
+            fontSize={0.4} 
+            color={colors.compass}
+            anchorX="center" 
+            anchorY="middle"
+          >
+            S
+          </Text>
+          <Text 
+            position={[-1.5, 0.05, 0]} 
+            rotation={[-Math.PI / 2, 0, 0]} 
+            fontSize={0.4} 
+            color={colors.compass}
+            anchorX="center" 
+            anchorY="middle"
+          >
+            W
+          </Text>
+
+          {/* Ticks/Markings */}
+          {Array.from({ length: 12 }).map((_, i) => (
+            <mesh 
+              key={i} 
+              rotation={[0, (i * Math.PI) / 6, 0]} 
+              position={[Math.sin((i * Math.PI) / 6) * 1.6, 0.02, Math.cos((i * Math.PI) / 6) * 1.6]}
+            >
+              <boxGeometry args={[0.05, 0.01, 0.2]} />
+              <meshStandardMaterial color={i % 3 === 0 ? colors.compass : colors.compassNorth} opacity={0.5} transparent />
+            </mesh>
+          ))}
+        </group>
+
+        {/* FIXED NEEDLE GROUP - Always points to 'True North' (World -Z) */}
+        <group position={[0, 0.2, 0]}>
+          {/* Central Pivot */}
+          <mesh>
+            <sphereGeometry args={[0.15, 16, 16]} />
+            <meshStandardMaterial color={colors.compass} metalness={0.9} roughness={0.1} />
+          </mesh>
+          
+          {/* North Needle (Red) - Points to Z- */}
+          <mesh position={[0, 0, -0.6]} rotation={[-Math.PI / 2, 0, 0]}>
+            <coneGeometry args={[0.15, 1.2, 4]} />
+            <meshStandardMaterial color={colors.compassNorth} emissive={colors.compassNorth} emissiveIntensity={0.6} />
+          </mesh>
+          
+          {/* South Needle (Theme Color) */}
+          <mesh position={[0, 0, 0.6]} rotation={[Math.PI / 2, 0, 0]}>
+            <coneGeometry args={[0.15, 1.2, 4]} />
+            <meshStandardMaterial color={colors.compass} metalness={0.5} />
+          </mesh>
+        </group>
       </group>
       
       {/* Clicked Tile Indicator */}
@@ -228,7 +447,7 @@ export const GridSystem: React.FC = () => {
           const mcpX = cursorPosition.x + 10;
           const mcpY = cursorPosition.y + 10;
           const isBlocked = isTileBlocked(mcpX, mcpY, entities, terrain);
-          const color = isBlocked ? '#ff0000' : '#00ff41';
+          const color = isBlocked ? colors.highlightBlocked : colors.highlight;
           const y = calcElevation(cursorPosition.x, cursorPosition.y);
           
           return (

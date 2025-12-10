@@ -171,7 +171,7 @@ const SessionSelector = memo(() => {
       <select
         value={currentSessionId || ''}
         onChange={(e) => switchSession(e.target.value)}
-        className="flex-1 bg-black border border-terminal-green text-terminal-green text-sm px-2 py-1 rounded focus:outline-none focus:border-terminal-green-bright"
+        className="flex-1 bg-terminal-dim border border-terminal-green-dim text-terminal-green text-sm px-2 py-1 rounded focus:outline-none focus:border-terminal-green-bright"
       >
         {sessions.map((session) => (
           <option key={session.id} value={session.id}>

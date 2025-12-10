@@ -8,17 +8,17 @@ export default {
     extend: {
       colors: {
         terminal: {
-          black: '#0a0a0a',
-          dim: '#1a1a1a',
+          black: 'rgb(var(--bg-primary) / <alpha-value>)',
+          dim: 'rgb(var(--bg-secondary) / <alpha-value>)',
           green: {
-            DEFAULT: '#00ff41',
-            dim: '#003300',
-            bright: '#40ff70',
+            DEFAULT: 'rgb(var(--text-primary) / <alpha-value>)',
+            dim: 'rgb(var(--text-secondary) / <alpha-value>)',
+            bright: 'rgb(var(--text-highlight) / <alpha-value>)',
           },
-          amber: '#ffb000',
-          cyan: '#00f0ff',
-          purple: '#bf5fff',
-          red: '#ff4444',
+          amber: 'rgb(var(--color-amber) / <alpha-value>)',
+          cyan: 'rgb(var(--color-cyan) / <alpha-value>)',
+          purple: 'rgb(var(--color-purple) / <alpha-value>)',
+          red: 'rgb(var(--color-red) / <alpha-value>)',
         },
       },
       fontFamily: {

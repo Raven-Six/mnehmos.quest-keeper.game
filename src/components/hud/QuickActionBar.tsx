@@ -1,57 +1,43 @@
 import React from 'react';
 import { useHudStore } from '../../stores/hudStore';
-import { useChatStore } from '../../stores/chatStore';
 import { useCombatStore } from '../../stores/combatStore';
-import { useGameStateStore } from '../../stores/gameStateStore';
 
 /**
- * Bottom action bar for quick intent buttons.
- * Terminal-styled configuration.
+ * Bottom action bar for map visualization tools.
+ * Theme-aware styling.
  */
 export const QuickActionBar: React.FC = () => {
     const toggleInventory = useHudStore(s => s.toggleInventory);
-    const toggleRestPanel = useHudStore(s => s.toggleRestPanel);
-    const toggleLootPanel = useHudStore(s => s.toggleLootPanel);
-    const setPrefillInput = useChatStore(s => s.setPrefillInput);
     
-    // Combat Context
-    const activeEncounterId = useCombatStore(s => s.activeEncounterId);
-    const entities = useCombatStore(s => s.entities);
-    const activeCharacter = useGameStateStore(s => s.activeCharacter);
+    // Visualization tools from combat store
+    const showLineOfSight = useCombatStore(s => s.showLineOfSight);
+    const measureMode = useCombatStore(s => s.measureMode);
+    const setShowLineOfSight = useCombatStore(s => s.setShowLineOfSight);
+    const setMeasureMode = useCombatStore(s => s.setMeasureMode);
 
-    // Determine if it's the player's turn
-    const isPlayerTurn = React.useMemo(() => {
-        if (!activeEncounterId || !activeCharacter) return false;
-        const currentEntity = entities.find(e => e.isCurrentTurn);
-        return currentEntity?.name === activeCharacter.name; 
-    }, [activeEncounterId, entities, activeCharacter]);
-
-    const isInCombat = !!activeEncounterId;
-
-    const handleAction = (text: string) => {
-        setPrefillInput(text);
-    };
-    
     return (
-        <div className="flex gap-2 p-2 bg-black/90 rounded-sm border-t border-x border-green-900/50 shadow-2xl animate-fade-in-up">
-            <ActionButton label="Inventory" icon="🎒" onClick={toggleInventory} />
-            <ActionButton label="Melee" icon="⚔️" onClick={() => handleAction("I attack with my weapon")} />
-            <ActionButton label="Cast" icon="🔮" onClick={() => handleAction("I cast ")} />
-            {isInCombat && (
-                <ActionButton label="Loot" icon="💀" onClick={toggleLootPanel} />
-            )}
+        <div className="flex gap-2 p-2 bg-terminal-dim/95 rounded-sm border border-terminal-green-dim shadow-2xl animate-fade-in-up">
             <ActionButton 
-                label="Rest" 
-                icon="⛺" 
-                onClick={toggleRestPanel} 
-                disabled={isInCombat}
+                label="Inventory" 
+                icon="🎒" 
+                onClick={toggleInventory} 
             />
             <ActionButton 
-                label="End Turn" 
-                icon="⏳" 
-                onClick={() => handleAction("I end my turn")} 
-                secondary 
-                disabled={!isPlayerTurn}
+                label="Spellbook" 
+                icon="📖" 
+                onClick={toggleInventory} // TODO: Create separate spellbook view
+            />
+            <ActionButton 
+                label="Line of Sight" 
+                icon="👁️" 
+                onClick={() => setShowLineOfSight(!showLineOfSight)}
+                active={showLineOfSight}
+            />
+            <ActionButton 
+                label="Distance" 
+                icon="📏" 
+                onClick={() => setMeasureMode(!measureMode)}
+                active={measureMode}
             />
         </div>
     );
@@ -61,11 +47,11 @@ interface ActionButtonProps {
     label: string;
     icon: string;
     onClick: () => void;
-    secondary?: boolean;
+    active?: boolean;
     disabled?: boolean;
 }
 
-const ActionButton: React.FC<ActionButtonProps> = ({ label, icon, onClick, secondary, disabled }) => (
+const ActionButton: React.FC<ActionButtonProps> = ({ label, icon, onClick, active, disabled }) => (
     <button 
       onClick={onClick}
       disabled={disabled}
@@ -73,10 +59,10 @@ const ActionButton: React.FC<ActionButtonProps> = ({ label, icon, onClick, secon
         flex flex-col items-center justify-center
         w-20 h-14 rounded-sm transition-all border font-mono
         ${disabled 
-            ? 'opacity-30 cursor-not-allowed bg-gray-900 border-gray-800 text-gray-600' 
-            : secondary 
-                ? 'bg-red-900/10 hover:bg-red-900/30 border-red-900/30 text-red-500' 
-                : 'bg-green-900/10 hover:bg-green-900/30 border-green-900/30 text-green-500 hover:text-green-300'
+            ? 'opacity-30 cursor-not-allowed bg-terminal-dim border-terminal-green-dim text-terminal-green-dim' 
+            : active
+                ? 'bg-terminal-green/20 border-terminal-green text-terminal-green-bright shadow-[0_0_10px_rgba(0,255,65,0.2)]'
+                : 'bg-terminal-green/10 hover:bg-terminal-green/20 border-terminal-green-dim text-terminal-green hover:text-terminal-green-bright'
         }
         active:scale-95
       `}

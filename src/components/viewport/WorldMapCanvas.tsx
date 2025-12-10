@@ -115,30 +115,11 @@ export const WorldMapCanvas: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
-  
-  // Container size for minimap (updated on resize)
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   const activeWorld = worlds.find(w => w.id === activeWorldId);
 
   // Get party position - memoized to avoid unnecessary re-renders
   const partyPosition = getActivePartyPosition();
-
-  // Track container size
-  useEffect(() => {
-    const updateSize = () => {
-      if (containerRef.current) {
-        setContainerSize({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
-        });
-      }
-    };
-    
-    updateSize();
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
-  }, []);
 
   // Get tile color based on visualization mode
   const getTileColor = useCallback((
@@ -656,22 +637,7 @@ export const WorldMapCanvas: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedPOI, zoom, lastMousePos, zoomAtPoint, resetView, fitToView, partyPosition]);
 
-  // Calculate minimap viewport indicator
-  const getMinimapViewport = useCallback(() => {
-    if (!tileData || containerSize.width === 0) {
-      return { left: 0, top: 0, width: 100, height: 100 };
-    }
-    
-    const mapWidth = tileData.width * TILE_SIZE * zoom;
-    const mapHeight = tileData.height * TILE_SIZE * zoom;
-    
-    return {
-      left: Math.max(0, Math.min(100, (-offset.x / mapWidth) * 100)),
-      top: Math.max(0, Math.min(100, (-offset.y / mapHeight) * 100)),
-      width: Math.min(100, (containerSize.width / mapWidth) * 100),
-      height: Math.min(100, (containerSize.height / mapHeight) * 100),
-    };
-  }, [tileData, zoom, offset, containerSize]);
+
 
   // Check for no worlds FIRST - don't show loading if there are no worlds
   if (worlds.length === 0) {
@@ -787,7 +753,6 @@ export const WorldMapCanvas: React.FC = () => {
     );
   }
 
-  const minimapViewport = getMinimapViewport();
 
   return (
     <div className="h-full w-full flex flex-col font-mono text-terminal-green overflow-hidden">
@@ -946,24 +911,6 @@ export const WorldMapCanvas: React.FC = () => {
           position="top-right"
         />
 
-        {/* Minimap */}
-        <div className="absolute bottom-3 left-3 w-32 h-24 bg-terminal-black/80 border border-terminal-green-dim overflow-hidden">
-          <div
-            className="absolute bg-terminal-green/30 border border-terminal-green pointer-events-none"
-            style={{
-              left: `${minimapViewport.left}%`,
-              top: `${minimapViewport.top}%`,
-              width: `${minimapViewport.width}%`,
-              height: `${minimapViewport.height}%`,
-            }}
-          />
-          <div 
-            className="w-full h-full opacity-50"
-            style={{
-              background: `linear-gradient(135deg, ${BIOME_COLORS.forest}, ${BIOME_COLORS.ocean})`,
-            }}
-          />
-        </div>
 
         {/* Controls Help */}
         <div className="absolute bottom-3 right-3 text-xs text-terminal-green/50 bg-terminal-black/70 px-2 py-1 border border-terminal-green-dim/50">

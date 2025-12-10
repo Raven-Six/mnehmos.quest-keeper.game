@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSettingsStore, LLMProvider } from '../../stores/settingsStore';
+import { ThemeSelector } from '../ThemeSelector';
 
 export const SettingsView: React.FC = () => {
     const {
@@ -13,21 +14,30 @@ export const SettingsView: React.FC = () => {
         setSystemPrompt,
     } = useSettingsStore();
 
+    // Theme-aware form element classes
+    const inputClasses = "w-full rounded border border-terminal-green-dim bg-terminal-dim px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none";
+    const selectClasses = "w-full rounded border border-terminal-green-dim bg-terminal-dim px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none";
+
     return (
         <div className="flex items-center justify-center h-full w-full bg-terminal-black p-8">
-            <div className="w-full max-w-2xl rounded-lg border border-terminal-green bg-terminal-black/50 p-8 shadow-[0_0_20px_rgba(0,255,0,0.2)]">
+            <div className="w-full max-w-2xl rounded-lg border border-terminal-green-dim bg-terminal-dim p-8 shadow-lg">
                 <div className="mb-8 border-b border-terminal-green-dim pb-4">
                     <h2 className="text-2xl font-bold text-terminal-green">⚙️ CONFIGURATION</h2>
                 </div>
 
                 <div className="space-y-6">
+                    {/* Theme Selection */}
+                    <ThemeSelector />
+
+                    <div className="border-t border-terminal-green-dim my-4"></div>
+
                     {/* Provider Selection */}
                     <div className="space-y-2">
                         <label className="block text-sm font-bold text-terminal-green">API PROVIDER</label>
                         <select
                             value={selectedProvider}
                             onChange={(e) => setProvider(e.target.value as LLMProvider)}
-                            className="w-full rounded border border-terminal-green bg-black px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
+                            className={selectClasses}
                         >
                             <option value="openai">OpenAI</option>
                             <option value="anthropic">Anthropic</option>
@@ -48,7 +58,7 @@ export const SettingsView: React.FC = () => {
                             type="password"
                             value={apiKeys[selectedProvider]}
                             onChange={(e) => setApiKey(selectedProvider, e.target.value)}
-                            className="w-full rounded border border-terminal-green bg-black px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
+                            className={inputClasses}
                             placeholder={`Enter ${selectedProvider} API Key`}
                         />
                     </div>
@@ -61,14 +71,14 @@ export const SettingsView: React.FC = () => {
                                 type="text"
                                 value={providerModels[selectedProvider]}
                                 onChange={(e) => setModel(selectedProvider, e.target.value)}
-                                className="flex-1 rounded border border-terminal-green bg-black px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
+                                className={`flex-1 ${inputClasses}`}
                                 placeholder="Select or type model ID"
                             />
                             <select
                                 onChange={(e) => {
                                     if (e.target.value) setModel(selectedProvider, e.target.value);
                                 }}
-                                className="w-8 rounded border border-terminal-green bg-black px-1 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
+                                className="w-8 rounded border border-terminal-green-dim bg-terminal-dim px-1 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
                                 value=""
                             >
                                 <option value="">▼</option>
@@ -134,7 +144,7 @@ export const SettingsView: React.FC = () => {
                                     localStorage.removeItem('quest-keeper-settings');
                                     window.location.reload();
                                 }}
-                                className="text-xs px-2 py-1 border border-terminal-green/50 text-terminal-green/70 rounded hover:bg-terminal-green/20 hover:text-terminal-green transition-colors"
+                                className="text-xs px-2 py-1 border border-terminal-green-dim text-terminal-green-dim rounded hover:bg-terminal-green/20 hover:text-terminal-green transition-colors"
                             >
                                 🔄 Reset to Default
                             </button>
@@ -142,7 +152,7 @@ export const SettingsView: React.FC = () => {
                         <textarea
                             value={systemPrompt}
                             onChange={(e) => setSystemPrompt(e.target.value)}
-                            className="h-32 w-full rounded border border-terminal-green bg-black px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
+                            className="h-32 w-full rounded border border-terminal-green-dim bg-terminal-dim px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
                             placeholder="Define the AI's behavior..."
                         />
                     </div>

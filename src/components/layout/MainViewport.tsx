@@ -7,12 +7,15 @@ import { NpcJournalView } from '../viewport/NpcJournalView';
 import { CharacterSheetView } from '../viewport/CharacterSheetView';
 import { SettingsView } from '../viewport/SettingsView';
 
+import { useTheme } from '../../context/ThemeContext';
+
 interface MainViewportProps {
   className?: string;
 }
 
 export const MainViewport: React.FC<MainViewportProps> = ({ className }) => {
   const { activeTab } = useUIStore();
+  const { theme } = useTheme();
 
   const renderContent = () => {
     switch (activeTab) {
@@ -37,8 +40,8 @@ export const MainViewport: React.FC<MainViewportProps> = ({ className }) => {
     <div className={`flex flex-col bg-terminal-black h-full border-l border-terminal-green-dim ${className || ''}`}>
       {/* Content Area */}
       <div className={`flex-1 text-terminal-green font-mono flex relative overflow-hidden ${activeTab === 'combat' ? '' : 'bg-terminal-black'}`}>
-        {/* CRT Grid Effect Background - Only for 3D view */}
-        {activeTab === 'combat' && (
+        {/* CRT Grid Effect Background - Only for 3D view in Terminal theme */}
+        {activeTab === 'combat' && theme === 'terminal' && (
           <div className="absolute inset-0 opacity-10 pointer-events-none z-10"
             style={{ backgroundImage: 'linear-gradient(0deg, transparent 24%, #003300 25%, #003300 26%, transparent 27%, transparent 74%, #003300 75%, #003300 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, #003300 25%, #003300 26%, transparent 27%, transparent 74%, #003300 75%, #003300 76%, transparent 77%, transparent)', backgroundSize: '50px 50px' }}>
           </div>

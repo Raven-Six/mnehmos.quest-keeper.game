@@ -10,6 +10,7 @@ import "./App.css";
 import { useUIStore } from "./stores/uiStore";
 import { CharacterCreationModal } from "./components/adventure/CharacterCreationModal";
 import { CampaignSetupWizard } from "./components/session/CampaignSetupWizard";
+import { ThemeProvider } from "./context/ThemeContext";
 
 function App() {
   const syncState = useGameStateStore((state) => state.syncState);
@@ -69,7 +70,7 @@ function App() {
   }, []); // Empty dependency array to run only once on mount
 
   return (
-    <>
+    <ThemeProvider>
       <AppLayout />
       <CharacterCreationModal 
         isOpen={showCharacterModal} 
@@ -86,7 +87,7 @@ function App() {
           if (campaignWizardCallback) campaignWizardCallback(sessionId, initialPrompt);
         }}
       />
-    </>
+    </ThemeProvider>
   );
 }
 
