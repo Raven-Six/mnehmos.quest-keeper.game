@@ -590,7 +590,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   measureMode: false,
   measureStart: null,
   measureEnd: null,
-  measureEnd: null,
   cursorPosition: null,
   consecutiveSkips: 0,
 
