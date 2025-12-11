@@ -8,6 +8,24 @@ Quest Keeper AI is a desktop RPG companion that combines an **AI Dungeon Master*
 ![React](https://img.shields.io/badge/React-19-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)
 ![MCP](https://img.shields.io/badge/MCP-Protocol-green)
+![Tools](https://img.shields.io/badge/MCP%20Tools-145+-brightgreen)
+
+---
+
+## What's New (December 2025)
+
+### Latest Release
+- **Seven-Layer Context Architecture** - Intelligent system prompt construction with ~5100 token budget
+- **Token Budget Overflow Fix** - Automatic context management for long sessions
+- **Claude Opus 4.5 Support** - Latest Anthropic model integration
+- **Clear Scene/End Combat Buttons** - Quick combat cleanup from viewport
+- **Action Economy Backend Integration** - Full bonus action/reaction tracking
+- **Interactive 3D Compass** - Move/rotate controls for battlemap navigation
+- **Rest Panel** - Party-wide short/long rest with HP/spell slot recovery
+- **Loot Panel** - Encounter loot management with drag-and-drop
+- **Spellbook View** - Full spellcasting UI with concentration tracking
+- **NPC Memory Timeline** - Visualize relationship history with NPCs
+- **Theme Selector** - Multiple UI themes (terminal, fantasy, modern)
 
 ---
 
@@ -25,14 +43,18 @@ Quest Keeper AI is a desktop RPG companion that combines an **AI Dungeon Master*
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| **AI Dungeon Master** | ✅ | LLM-driven storytelling with Claude, GPT-4, Gemini, or OpenRouter |
-| **Mechanical Grounding** | ✅ | 80+ MCP tools enforce game rules—the AI describes, the engine validates |
-| **3D Battlemap** | ✅ | React Three Fiber combat with tokens, terrain, cover, and conditions |
+| **AI Dungeon Master** | ✅ | LLM-driven storytelling with Claude Opus 4.5, GPT-4, Gemini, or OpenRouter |
+| **Mechanical Grounding** | ✅ | 145+ MCP tools enforce game rules—the AI describes, the engine validates |
+| **3D Battlemap** | ✅ | React Three Fiber combat with tokens, terrain, auras, cover, and conditions |
 | **2D World Map** | ✅ | Canvas-based map with 28+ biomes, POIs, zoom/pan, multiple view modes |
+| **Seven-Layer Context** | ✅ | Dynamic system prompt with world state, party, narrative, scene, secrets |
 | **Persistent World** | ✅ | SQLite-backed state survives sessions—characters, quests, inventory |
 | **Procedural Generation** | ✅ | Perlin noise worlds with regions, biomes, rivers, and structures |
 | **Party Management** | ✅ | Multi-character parties with roles, formations, and share percentages |
 | **Quest System** | ✅ | Full quest tracking with objectives, rewards, and progress |
+| **Spellcasting** | ✅ | Spell slots, concentration, class progression, rest recovery |
+| **Rest System** | ✅ | Short/long rest with HP recovery, hit dice, spell slot restoration |
+| **NPC Memory** | ✅ | Relationship tracking, conversation history, disposition changes |
 | **Notes & Journaling** | ✅ | Categorized notes with tags, search, and pinning |
 | **OSRS-Style Progression** | 🔧 | Quest chains, skill requirements, achievement tracking (planned) |
 
@@ -57,7 +79,7 @@ Quest Keeper AI bridges the gap:
 │                                                             │
 │   ┌─────────────┐      ┌─────────────┐      ┌───────────┐  │
 │   │   LLM DM    │ ──── │  MCP Engine │ ──── │  SQLite   │  │
-│   │  (Claude)   │      │  (80+ tools)│      │   (DB)    │  │
+│   │  (Claude)   │      │ (145+ tools)│      │   (DB)    │  │
 │   └─────────────┘      └─────────────┘      └───────────┘  │
 │          │                    │                    │        │
 │          └────────────────────┼────────────────────┘        │
@@ -85,10 +107,28 @@ Quest Keeper AI bridges the gap:
 │   ├── Chat History  │   ├── ⚔️ 3D Battlemap       │
 │   ├── Tool Calls    │   ├── 📋 Character Sheet    │
 │   └── Input         │   ├── 🎒 Inventory          │
+│                     │   ├── 📖 Spellbook          │
 │                     │   ├── 🌍 World State        │
+│                     │   ├── 👤 NPC Journal        │
 │                     │   └── 📝 Notes/Quests       │
 │                     │                              │
 └─────────────────────┴──────────────────────────────┘
+```
+
+### Combat HUD
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Turn Order: [Hero] → Goblin → Orc → Mage          │
+├─────────────────────────────────────────────────────┤
+│  Party Status:                                      │
+│  ❤️ Valeros: 45/50 HP  ⚡ Mage: 3/4 slots          │
+│  🛡️ AC: 18  ⚔️ +7 to hit                          │
+├─────────────────────────────────────────────────────┤
+│  Quick Actions:                                     │
+│  [Attack] [Cast Spell] [Move] [Dodge] [Help]       │
+│  [End Turn] [Short Rest] [Clear Scene]             │
+└─────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -99,18 +139,18 @@ Quest Keeper AI bridges the gap:
 - **Framework:** Tauri 2.x (Rust backend, web frontend)
 - **UI:** React 19 + TypeScript 5.8
 - **3D:** React Three Fiber + Three.js
-- **State:** Zustand 5.x
-- **Styling:** TailwindCSS 3.x
+- **State:** Zustand 5.x with persistence
+- **Styling:** TailwindCSS 3.x with theme support
 
 ### Backend (MCP Server)
-- **Server:** rpg-mcp (unified MCP server)
+- **Server:** rpg-mcp (unified MCP server with 145+ tools)
 - **Protocol:** MCP v2024-11-05 (JSON-RPC 2.0 over stdio)
 - **Database:** SQLite with migrations
-- **Tools:** 80+ tools across 8 domains
+- **Presets:** 1100+ creature templates, 50+ encounters, 30+ locations
 
 ### LLM Providers
-- OpenAI (GPT-4, GPT-4o)
-- Anthropic (Claude 3.5, Claude 3)
+- Anthropic (Claude Opus 4.5, Claude Sonnet 4.5, Claude 3.5)
+- OpenAI (GPT-4, GPT-4o, GPT-4 Turbo)
 - Google (Gemini Pro, Gemini Flash)
 - OpenRouter (100+ models)
 
@@ -122,17 +162,26 @@ Quest Keeper AI bridges the gap:
 Quest Keeper AI/
 ├── src/                          # React frontend
 │   ├── components/
-│   │   ├── layout/              # Main split layout
+│   │   ├── layout/              # Main split layout, navbar
 │   │   ├── terminal/            # Chat, sidebar, tool inspector
-│   │   └── viewport/            # Battlemap, sheets, inventory
+│   │   ├── viewport/            # Battlemap, sheets, inventory, spellbook
+│   │   ├── hud/                 # Combat HUD, quick actions, rest panel
+│   │   ├── character/           # Character sheet components
+│   │   └── npc/                 # NPC memory, relationship cards
 │   ├── services/
 │   │   ├── mcpClient.ts         # MCP sidecar management
-│   │   └── llm/                 # Provider adapters
+│   │   └── llm/
+│   │       ├── LLMService.ts    # Provider adapters
+│   │       └── contextBuilder.ts # Seven-layer context assembly
 │   ├── stores/                  # Zustand state management
 │   │   ├── chatStore.ts
 │   │   ├── gameStateStore.ts
 │   │   ├── combatStore.ts
+│   │   ├── partyStore.ts
+│   │   ├── npcStore.ts
 │   │   └── settingsStore.ts
+│   ├── context/
+│   │   └── ThemeContext.tsx     # Theme provider
 │   └── utils/
 ├── src-tauri/                   # Tauri/Rust backend
 │   ├── binaries/                # MCP server binary
@@ -191,35 +240,54 @@ npm run tauri build
 
 1. Click the **[CONFIG]** button in the terminal panel
 2. Enter API keys for your preferred provider(s):
+   - Anthropic API Key (recommended for Claude Opus 4.5)
    - OpenAI API Key
-   - Anthropic API Key
    - Google AI API Key
    - OpenRouter API Key
 3. Select your preferred model
-4. Customize the system prompt (optional)
+4. Customize the system prompt layers (optional)
 
 Keys are stored in browser localStorage.
+
+### Seven-Layer Context System
+
+The system prompt is assembled from 7 dynamic layers:
+
+| Layer | Content | Tokens |
+|-------|---------|--------|
+| **Layer 1** | AI DM Core Identity | ~400 |
+| **Layer 2** | Game System Rules | ~800 |
+| **Layer 3** | World State Snapshot | ~600 |
+| **Layer 4** | Party & Character Context | ~1200 |
+| **Layer 5** | Narrative Memory (rolling) | ~800 |
+| **Layer 6** | Scene Context (combat/dialogue/exploration) | ~1000 |
+| **Layer 7** | DM Secrets (hidden from player) | ~300 |
+
+Layers 1-2 are runtime-editable via settings. Layers 3-7 are dynamically fetched.
 
 ### MCP Server
 
 The unified `rpg-mcp-server` binary is bundled in `src-tauri/binaries/`. It provides:
 
-| Domain | Tools |
-|--------|-------|
-| **Characters** | create, get, update, list, delete |
-| **Items** | templates, give, remove, equip, transfer |
-| **Inventory** | detailed listings, equipment slots |
-| **Quests** | create, assign, track, complete |
-| **Combat** | encounters, actions, turns, initiative |
-| **World** | generation, regions, map patches |
-| **Math** | dice rolls, probability, algebra |
-| **Strategy** | nations, diplomacy, fog of war |
+| Domain | Tools | Highlights |
+|--------|-------|------------|
+| **Composite** | 6 | spawn_preset_encounter, loot_encounter, rest_party |
+| **Characters** | 5 | Full D&D stat blocks, conditions, spells |
+| **Items** | 15 | Templates, equipment slots, currency |
+| **Combat** | 8 | Encounters, initiative, death saves, lair actions |
+| **Spells** | 15+ | Spell slots, concentration, rest recovery |
+| **Quests** | 8 | Objectives, progress, rewards |
+| **World** | 12 | Generation, regions, map patches |
+| **Party** | 17 | Movement, context, world positioning |
+| **NPCs** | 7 | Memory, relationships, conversation history |
+| **Secrets** | 9 | Hidden info, reveal conditions, leak detection |
+| **Strategy** | 11 | Nations, diplomacy, fog of war |
 
 ---
 
 ## 🎯 Development Status
 
-**Overall Progress: ~70% Complete** | Phases 1 & 2 ✅ | Phases 3-6 🔧/⬜
+**Overall Progress: ~75% Complete** | Phases 1-2 ✅ | Phase 4 🔧 | Phases 3, 5-6 ⬜
 
 ### ✅ Phase 1: Core Systems (Complete)
 - Character creation with D&D 5e stats, point buy, dice rolling
@@ -227,6 +295,7 @@ The unified `rpg-mcp-server` binary is bundled in `src-tauri/binaries/`. It prov
 - Inventory system with D&D 5e item database and equipment slots
 - Combat encounters with initiative, HP, conditions, cover mechanics
 - Quest system with full data, objectives, rewards, and progress tracking
+- Spellcasting with slot tracking, concentration, class progression
 
 ### ✅ Phase 2: World Visualization (Complete)
 - 2D canvas world map with zoom (0.25x-6x) and pan
@@ -236,18 +305,26 @@ The unified `rpg-mcp-server` binary is bundled in `src-tauri/binaries/`. It prov
 - Region boundaries and capital markers
 - Interactive POI detail panels
 
-### 🔧 Phase 4: Enhanced Combat (60% Complete)
+### 🔧 Phase 4: Enhanced Combat (80% Complete)
 - ✅ 3D React Three Fiber battlemap
 - ✅ Grid system with coordinate labels
 - ✅ Entity tokens with size/type support
 - ✅ Terrain with cover mechanics
+- ✅ Aura visualization layer
+- ✅ Interactive 3D compass navigation
+- ✅ Combat HUD with turn order, party status
+- ✅ Quick action bar with common actions
+- ✅ Rest panel for short/long rests
+- ✅ Loot panel for encounter rewards
 - ⬜ Click-to-move token interaction
 - ⬜ Combat log panel
 
-### 🔧 Phase 5: Session Management (65% Complete)
+### 🔧 Phase 5: Session Management (70% Complete)
 - ✅ Auto-save via Zustand persist
 - ✅ Chat session management
-- ⬜ Context condensing for long sessions
+- ✅ Seven-layer context architecture
+- ✅ Token budget management
+- ⬜ Context condensing for very long sessions
 - ⬜ Export to Markdown/PDF
 
 ### ⬜ Phase 3: Progression Systems (Not Started)
@@ -270,7 +347,7 @@ See [DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md) for the full roadmap.
 ```bash
 # Verify MCP connectivity
 # Type in chat: /test
-# Should list 80+ available tools
+# Should list 145+ available tools
 
 # Manual tool test
 # Ask the AI: "Create a fighter named Valeros"
@@ -319,6 +396,7 @@ npm run tauri dev  # Hot reload enabled
 - **Protocol standardization** - JSON-RPC 2.0 is well-understood
 - **Tool isolation** - Backend is stateless, all state in SQLite
 - **LLM compatibility** - Works with any tool-calling LLM
+- **Anti-hallucination** - LLM can only modify state through validated tools
 
 ### Why Tauri?
 - **Small bundle size** - ~10MB vs Electron's ~150MB
@@ -328,7 +406,14 @@ npm run tauri dev  # Hot reload enabled
 ### Why Zustand?
 - **Simple API** - No boilerplate
 - **TypeScript-first** - Full type inference
+- **Persistence** - Built-in localStorage sync
 - **Flexible** - Works with React 19
+
+### Why Seven-Layer Context?
+- **Token efficiency** - Dynamic layers only load when relevant
+- **Separation of concerns** - Identity, rules, state, narrative isolated
+- **Customization** - Users can edit identity/rules layers
+- **Secret management** - DM secrets never leak to player display
 
 ---
 
@@ -337,7 +422,8 @@ npm run tauri dev  # Hot reload enabled
 | Issue | Status | Workaround |
 |-------|--------|------------|
 | OpenRouter free models skip tools | Known | Use paid model for full functionality |
-| 5-second polling delay | Known | Manual refresh, event system planned |
+| Long sessions can exceed context | Known | Token budget tracking, context condensing planned |
+| ~~5-second polling delay~~ | ✅ Fixed | Event-driven updates implemented |
 | ~~Quest log shows UUIDs only~~ | ✅ Fixed | Full quest data now displayed |
 
 ---
