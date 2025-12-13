@@ -196,7 +196,20 @@ Quest Keeper AI/
 
 ---
 
-## 🚀 Getting Started
+## 📥 Installation
+
+### For Users (Windows)
+
+1. Go to the [Releases](https://github.com/Mnehmos/QuestKeeperAI-v2/releases) page
+2. Download the latest `Quest.Keeper.AI_vX.X.X_x64-setup.exe`
+3. Run the installer and follow the prompts
+4. Launch Quest Keeper AI from the Start Menu
+
+> **Note:** Your game data (characters, worlds, quests) is stored in `%APPDATA%\com.questkeeper.ai\mcp-data\` and persists across updates.
+
+---
+
+## 🚀 Development Setup
 
 ### Prerequisites
 
@@ -204,7 +217,7 @@ Quest Keeper AI/
 - **Rust** toolchain ([install](https://rustup.rs/))
 - **Tauri prerequisites** for your OS ([guide](https://tauri.app/v2/guides/getting-started/prerequisites))
 
-### Installation
+### Clone & Install
 
 ```bash
 # Clone the repository
@@ -214,6 +227,13 @@ cd QuestKeeperAI-v2
 # Install dependencies
 npm install
 ```
+
+### Sidecar Binary
+
+The MCP server binary (`rpg-mcp-server-x86_64-pc-windows-msvc.exe`) must be present in `src-tauri/binaries/`. This binary is committed to the repository. If building from a fresh checkout without it, you'll need to:
+
+1. Build it from the [rpg-mcp](https://github.com/Mnehmos/rpg-mcp) repository
+2. Place the binary at: `src-tauri/binaries/rpg-mcp-server-x86_64-pc-windows-msvc.exe`
 
 ### Running
 
@@ -228,9 +248,21 @@ npm run dev
 ### Building
 
 ```bash
-# Production build
+# Production build (creates installer in src-tauri/target/release/bundle/)
 npm run tauri build
 ```
+
+### Creating a Release
+
+Releases are automated via GitHub Actions. To create a new release:
+
+```bash
+# Tag and push
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+This triggers the release workflow which builds the Windows installer and creates a draft release.
 
 ---
 

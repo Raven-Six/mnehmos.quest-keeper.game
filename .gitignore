@@ -46,13 +46,11 @@ Roo-Code
 Lightweight-CRM---Invoice/
 
 # Runtime database files (prevents Tauri file watcher rebuild loops)
-# IMPORTANT: We WANT src-tauri/rpg.db (seed database) in version control
 *.db-shm
 *.db-wal
 
-# Exclude databases EXCEPT the bundled seed
+# Database files (users start fresh, data stored in AppData)
 *.db
-!src-tauri/rpg.db
 # Deprecated components (old MCP servers)
 _deprecated/
 
@@ -69,3 +67,6 @@ aux
 
 # Developer-only agent orchestration docs (not for version control)
 Agents/
+
+# Temporary test directories
+temp_test_mcp/

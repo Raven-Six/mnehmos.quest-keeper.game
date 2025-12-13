@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Install Rust target
+        run: rustup target add x86_64-pc-windows-msvc
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify sidecar binary exists
+        run: |
+          if (!(Test-Path "src-tauri/binaries/rpg-mcp-server-x86_64-pc-windows-msvc.exe")) {
+            Write-Error "MCP server binary not found! Ensure it is committed to the repository."
+            exit 1
+          }
+          Write-Host "✓ MCP server binary found"
+
+      - name: Verify native module exists
+        run: |
+          if (!(Test-Path "src-tauri/binaries/better_sqlite3.node")) {
+            Write-Error "better_sqlite3.node not found!"
+            exit 1
+          }
+          Write-Host "✓ Native SQLite module found"
+
+      - name: Prepare MCP (copy native module to target dirs)
+        run: npm run prepare:mcp
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Quest Keeper AI ${{ github.ref_name }}'
+          releaseBody: |
+            ## Quest Keeper AI ${{ github.ref_name }}
+            
+            ### Installation
+            
+            1. Download `Quest.Keeper.AI_${{ github.ref_name }}_x64-setup.exe`
+            2. Run the installer
+            3. Launch Quest Keeper AI from Start Menu
+            
+            ### What's New
+            
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+            
+            ### Requirements
+            
+            - Windows 10/11 (x64)
+            - ~100MB disk space
+            - Internet connection for AI features (API keys required)
+          releaseDraft: true
+          prerelease: false
+          includeDebug: false
+          includeRelease: true
+          tauriScript: npm run tauri
+
+  # Future: Add macOS and Linux jobs when cross-platform binaries are available
+  # build-macos:
+  #   runs-on: macos-latest
+  #   ...
+  # build-linux:
+  #   runs-on: ubuntu-latest
+  #   ...
