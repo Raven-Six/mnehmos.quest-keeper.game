@@ -14,7 +14,11 @@ export const PartyStatusBar: React.FC = () => {
   const setActiveCharacterId = useGameStateStore(s => s.setActiveCharacterId);
   
   // Get active adventure party to check persistence
-  const activePartyMembers = usePartyStore(s => s.getActiveParty()?.members || []);
+  // Get active adventure party to check persistence
+  // Fix: Select the party object first (stable) then derive members to avoid infinite loop
+  const activeParty = usePartyStore(s => s.getActiveParty());
+  const activePartyMembers = useMemo(() => activeParty?.members || [], [activeParty]);
+  
   const activePartyCharacterIds = useMemo(() => 
     new Set(
       activePartyMembers
