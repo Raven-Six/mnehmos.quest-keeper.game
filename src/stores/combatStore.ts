@@ -181,7 +181,7 @@ interface CombatState {
   setMeasureStart: (pos: { x: number, y: number } | null) => void;
   setMeasureEnd: (pos: { x: number, y: number } | null) => void;
   setCursorPosition: (pos: { x: number, y: number } | null) => void;
-  syncCombatState: () => Promise<void>;
+  syncCombatState: (force?: boolean) => Promise<void>;
   updateFromStateJson: (stateJson: EncounterStateJson) => void;
   clearCombat: (keepSession?: boolean) => void;
   setClickedTileCoord: (coord: { x: number; y: number } | null) => void;

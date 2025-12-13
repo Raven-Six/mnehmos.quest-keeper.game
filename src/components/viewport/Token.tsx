@@ -4,7 +4,7 @@ import { Edges } from '@react-three/drei';
 import { Mesh } from 'three';
 import { Entity, useCombatStore } from '../../stores/combatStore';
 import { calculateGridPosition, CREATURE_SIZE_MAP, getElevationAt } from '../../utils/gridHelpers';
-import { EntityTooltip } from './EntityTooltip';
+
 import { ProceduralCreature, CreatureArchetype } from './models';
 import { getCreatureComponent } from './models/CreatureLibrary';
 import { getModelDefinition, inferModelTagFromName } from './models/modelRegistry';
