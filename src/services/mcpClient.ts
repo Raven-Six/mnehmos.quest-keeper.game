@@ -76,8 +76,8 @@ export class McpClient {
             console.log(`[McpClient] Spawning sidecar: ${this.serverName}`);
             const command = Command.sidecar(`binaries/${this.serverName}`);
 
-            command.on('close', (data) => {
                 console.log(`[McpClient] ${this.serverName} closed with code ${data.code}`);
+                this.logToFile(`${this.serverName} closed with code ${data.code}`);
                 this.cleanup();
             });
 
@@ -99,6 +99,7 @@ export class McpClient {
                         source: `McpClient:${this.serverName}`,
                         timestamp: Date.now()
                     });
+                    this.logToFile(`STDERR: ${line}`);
                 } else {
                     console.log(`[McpClient] ${this.serverName}: ${line}`);
                 }
@@ -110,7 +111,31 @@ export class McpClient {
 
         } catch (error) {
             console.error(`[McpClient] Failed to spawn ${this.serverName}:`, error);
+            await this.logToFile(`Failed to spawn: ${error}`);
             throw error;
+        }
+    }
+
+    private async logToFile(message: string) {
+        try {
+            const { appDataDir } = await import('@tauri-apps/api/path');
+            const { exists, mkdir, writeTextFile, readTextFile } = await import('@tauri-apps/plugin-fs');
+            
+            const dir = await appDataDir();
+            const logPath = `${dir}/mcp-debug.log`;
+            
+            // Simple append simulation
+            let content = '';
+            try {
+                content = await readTextFile(logPath);
+            } catch {}
+            
+            const timestamp = new Date().toISOString();
+            const newContent = `${content}\n[${timestamp}] ${message}`;
+            
+            await writeTextFile(logPath, newContent);
+        } catch (e) {
+            console.error('Failed to write to log file:', e);
         }
     }
 
