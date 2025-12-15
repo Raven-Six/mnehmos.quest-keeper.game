@@ -286,7 +286,15 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
       // Build behavior string from backstory/personality
       const behavior = [backstory, personality].filter(Boolean).join(' ');
 
-      const result = await mcpManager.gameStateClient.callTool('create_character', {
+      // Debug: Check if MCP client is connected
+      const isConnected = mcpManager.gameStateClient.isConnected();
+      console.log('[CharacterCreationModal] MCP connected:', isConnected);
+      
+      if (!isConnected) {
+        throw new Error('MCP Server not connected. Please restart the application.');
+      }
+
+      const toolArgs = {
         name: name.trim(),
         hp: totalHp,
         maxHp: totalHp,
@@ -298,9 +306,17 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
         ...(actualRace && { race: actualRace }),
         ...(actualClass && { class: actualClass }),
         ...(behavior && { behavior })
-      });
+      };
+      
+      console.log('[CharacterCreationModal] Calling create_character with:', toolArgs);
+      
+      const result = await mcpManager.gameStateClient.callTool('create_character', toolArgs);
+      
+      console.log('[CharacterCreationModal] Raw result:', JSON.stringify(result).slice(0, 500));
 
       const data = parseMcpResponse<any>(result, null);
+      
+      console.log('[CharacterCreationModal] Parsed data:', data ? JSON.stringify(data).slice(0, 500) : 'null');
 
       if (data && data.id) {
         console.log('[CharacterCreationModal] Character created:', data.id);
@@ -364,7 +380,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-      <div className="bg-terminal-black border-2 border-terminal-green rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-[0_0_50px_rgba(0,255,0,0.3)] flex flex-col">
+      <div className="bg-terminal-black border-2 border-terminal-green rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-glow-xl flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-terminal-green/30 bg-terminal-green/5">
           <div className="flex items-center justify-between">
@@ -412,7 +428,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Enter character name..."
-                  className="w-full bg-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green text-lg"
+                  className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green text-lg"
                   autoFocus
                 />
               </div>
@@ -424,7 +440,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                   <select
                     value={race}
                     onChange={(e) => setRace(e.target.value)}
-                    className="w-full bg-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
+                    className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
                   >
                     {RACES.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
@@ -434,7 +450,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                       value={customRace}
                       onChange={(e) => setCustomRace(e.target.value)}
                       placeholder="Enter race..."
-                      className="w-full mt-2 bg-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
+                      className="w-full mt-2 bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
                     />
                   )}
                 </div>
@@ -443,7 +459,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                   <select
                     value={charClass}
                     onChange={(e) => setCharClass(e.target.value)}
-                    className="w-full bg-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
+                    className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
                   >
                     {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -453,7 +469,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                       value={customClass}
                       onChange={(e) => setCustomClass(e.target.value)}
                       placeholder="Enter class..."
-                      className="w-full mt-2 bg-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
+                      className="w-full mt-2 bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
                     />
                   )}
                 </div>
@@ -469,7 +485,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                     onChange={(e) => setLevel(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
                     min={1}
                     max={20}
-                    className="w-full bg-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
+                    className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
                   />
                 </div>
                 <div>
@@ -477,7 +493,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                   <select
                     value={characterType}
                     onChange={(e) => setCharacterType(e.target.value as CharacterType)}
-                    className="w-full bg-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
+                    className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green"
                   >
                     <option value="pc">Player Character</option>
                     <option value="npc">NPC (Ally)</option>
@@ -585,7 +601,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                         <select
                           value={standardArrayAssignments[idx] || ''}
                           onChange={(e) => assignStandardArray(idx, (e.target.value || null) as keyof AbilityScores | null)}
-                          className="w-full mt-1 bg-black border border-terminal-green/50 text-terminal-green text-xs p-1 rounded"
+                          className="w-full mt-1 bg-terminal-black border border-terminal-green/50 text-terminal-green text-xs p-1 rounded"
                         >
                           <option value="">--</option>
                           {ABILITY_NAMES.map(a => (
@@ -667,7 +683,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                         }))}
                         min={1}
                         max={30}
-                        className="w-full bg-black border border-terminal-green/50 text-terminal-green text-2xl font-bold text-center p-2 rounded"
+                        className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green text-2xl font-bold text-center p-2 rounded"
                       />
                       <div className="text-xs text-center text-terminal-green/60 mt-1">
                         {formatMod(getMod(stats[ability]))}
@@ -706,7 +722,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                   value={enhancePrompt}
                   onChange={(e) => setEnhancePrompt(e.target.value)}
                   placeholder="Optional: Add context (e.g., 'former soldier', 'seeks revenge')"
-                  className="w-full bg-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green"
+                  className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green"
                 />
               </div>
 
@@ -720,7 +736,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                   onChange={(e) => setBackstory(e.target.value)}
                   placeholder="Enter character backstory..."
                   rows={4}
-                  className="w-full bg-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green resize-none"
+                  className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green resize-none"
                 />
               </div>
 
@@ -734,7 +750,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({
                   onChange={(e) => setPersonality(e.target.value)}
                   placeholder="Enter personality traits, quirks, motivations..."
                   rows={3}
-                  className="w-full bg-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green resize-none"
+                  className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green resize-none"
                 />
               </div>
 

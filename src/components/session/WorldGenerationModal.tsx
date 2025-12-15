@@ -317,7 +317,7 @@ Description: [one atmospheric sentence]`;
 
   return (
     <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 font-mono">
-      <div className="bg-terminal-black border-2 border-terminal-green rounded-lg w-full max-w-2xl mx-4 shadow-[0_0_50px_rgba(0,255,0,0.4)]">
+      <div className="bg-terminal-black border-2 border-terminal-green rounded-lg w-full max-w-2xl mx-4 shadow-glow-xl">
         {/* Header */}
         <div className="border-b border-terminal-green p-4 text-center">
           <h2 className="text-2xl font-bold text-terminal-green animate-pulse">

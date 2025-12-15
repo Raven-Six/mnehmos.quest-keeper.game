@@ -23,6 +23,13 @@ CRITICAL: The engine enforces this. If player tries 2 actions, the second call w
 - HP is bounded [0, maxHP] - engine enforces
 - At 0 HP: Call `roll_death_save` at start of dying creature's turn
 
+## Combat Stats & Auto-Calculation
+
+- **ALWAYS** provide `damage` (e.g., "1d8+3" or integer) and `dc` (target AC) in `execute_combat_action` if known.
+- **Auto-Calculation**: If you provide `0` or omit these fields, the engine will attempt to use the actor's default stats.
+- **Monsters**: Presets (e.g., "goblin:archer") automatically have AC and default attacks populated.
+- **Players**: Ensure character sheets are up to date to support auto-calculation.
+
 ## Spell Casting
 
 - Spell slots tracked by engine via `spellSlots` on character

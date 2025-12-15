@@ -10,13 +10,26 @@ import { LineOfSight } from './LineOfSight';
 import { CombatHUD } from '../hud/CombatHUD';
 import { useCombatStore } from '../../stores/combatStore';
 
-export const BattlemapCanvas: React.FC = () => {
+interface BattlemapCanvasProps {
+  active?: boolean;
+}
+
+export const BattlemapCanvas: React.FC<BattlemapCanvasProps> = ({ active = true }) => {
   const battlefieldDescription = useCombatStore((state) => state.battlefieldDescription);
   const entities = useCombatStore((state) => state.entities);
   const showDescription = entities.length === 0 && battlefieldDescription;
 
+  // If not active, we want to pause rendering but keep the context alive
+  // We use CSS to hide it and frameloop="never" to stop the loop
+
   return (
-    <div className="w-full h-full relative">
+    <div 
+      className="w-full h-full relative"
+      style={{ 
+        display: active ? 'block' : 'none',
+        visibility: active ? 'visible' : 'hidden' // Double ensure
+      }}
+    >
       {showDescription && (
         <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none p-8">
           <div className="bg-terminal-black/90 border border-terminal-green p-6 max-w-2xl rounded shadow-lg pointer-events-auto overflow-y-auto max-h-[80%]">
@@ -31,10 +44,12 @@ export const BattlemapCanvas: React.FC = () => {
       )}
       
       
-      {/* Combat HUD Overlay */}
-      <CombatHUD />
+      {/* Combat HUD Overlay - only render if active to save DOM updates */}
+      {active && <CombatHUD />}
+      
       <Canvas
         shadows
+        frameloop={active ? 'always' : 'never'}
         camera={{ position: [5, 5, 5], fov: 50 }}
       >
         {/* Background Color (Terminal Black) */}
@@ -82,7 +97,7 @@ export const BattlemapCanvas: React.FC = () => {
         <CameraControls />
 
         {/* Dev Tools */}
-        <Stats />
+        {active && <Stats />}
       </Canvas>
     </div>
   );

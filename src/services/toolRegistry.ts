@@ -75,6 +75,14 @@ export const tools: Record<string, ToolDefinition> = {
 
       store.addEntity(newEntity);
       console.log(`[Tool] Spawned entity ${newEntity.id} (${newEntity.name}) at`, newEntity.position);
+      
+      // Return MCP-formatted result
+      return {
+        content: [{
+          type: 'text',
+          text: `✅ Spawned ${newEntity.name} (${newEntity.type}) at (${newEntity.position.x}, ${newEntity.position.y}, ${newEntity.position.z})\nEntity ID: ${newEntity.id}\nHP: ${newEntity.metadata.hp.current}/${newEntity.metadata.hp.max}`
+        }]
+      };
     }
   },
 
@@ -104,8 +112,21 @@ export const tools: Record<string, ToolDefinition> = {
       if (entity) {
         store.updateEntity(args.id, { position: args.position });
         console.log(`[Tool] Moved entity ${args.id} to`, args.position);
+        return {
+          content: [{
+            type: 'text',
+            text: `✅ Moved ${entity.name} to (${args.position.x}, ${args.position.y}, ${args.position.z})`
+          }]
+        };
       } else {
         console.warn(`[Tool] move_entity failed: Entity ${args.id} not found`);
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ Entity ${args.id} not found`
+          }],
+          isError: true
+        };
       }
     }
   },
@@ -151,8 +172,21 @@ export const tools: Record<string, ToolDefinition> = {
 
         store.updateEntityMetadata(args.id, metadataUpdates);
         console.log(`[Tool] Updated stats for entity ${args.id}`, metadataUpdates);
+        return {
+          content: [{
+            type: 'text',
+            text: `✅ Updated ${entity.name} stats`
+          }]
+        };
       } else {
         console.warn(`[Tool] update_stats failed: Entity ${args.id} not found`);
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ Entity ${args.id} not found`
+          }],
+          isError: true
+        };
       }
     }
   },
@@ -172,10 +206,24 @@ export const tools: Record<string, ToolDefinition> = {
       const entity = store.entities.find(e => e.id === args.id);
 
       if (entity) {
+        const name = entity.name;
         store.removeEntity(args.id);
         console.log(`[Tool] Deleted entity ${args.id}`);
+        return {
+          content: [{
+            type: 'text',
+            text: `✅ Removed ${name} from the battlefield`
+          }]
+        };
       } else {
         console.warn(`[Tool] delete_entity failed: Entity ${args.id} not found`);
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ Entity ${args.id} not found`
+          }],
+          isError: true
+        };
       }
     }
   }

@@ -30,7 +30,8 @@ interface UIState {
   
   // Quick Command Dispatch (for sidebar buttons)
   pendingCommand: string | null;
-  setPendingCommand: (command: string) => void;
+  executeCommandImmediately: boolean;
+  setPendingCommand: (command: string, executeImmediately?: boolean) => void;
   clearPendingCommand: () => void;
 }
 
@@ -74,6 +75,10 @@ export const useUIStore = create<UIState>((set) => ({
   
   // Quick Command Dispatch
   pendingCommand: null,
-  setPendingCommand: (command) => set({ pendingCommand: command }),
-  clearPendingCommand: () => set({ pendingCommand: null }),
+  executeCommandImmediately: false,
+  setPendingCommand: (command, executeImmediately = false) => set({ 
+    pendingCommand: command, 
+    executeCommandImmediately: executeImmediately 
+  }),
+  clearPendingCommand: () => set({ pendingCommand: null, executeCommandImmediately: false }),
 }));

@@ -30,7 +30,7 @@ export class OpenAIProvider implements LLMProviderInterface {
 
         const body: any = {
             model,
-            messages: this.formatMessages(messages),
+            messages: this.formatMessages(messages, model),
             stream: false,
         };
 
@@ -120,7 +120,7 @@ export class OpenAIProvider implements LLMProviderInterface {
 
         const body: any = {
             model,
-            messages: this.formatMessages(messages),
+            messages: this.formatMessages(messages, model),
             stream: true,
         };
 
@@ -253,12 +253,39 @@ export class OpenAIProvider implements LLMProviderInterface {
         }
     }
 
-    private formatMessages(messages: ChatMessage[]): any[] {
-        return messages.map(msg => {
+    /**
+     * Format messages with optional caching support for Anthropic models via OpenRouter.
+     * 
+     * Caching works by adding `cache_control: { type: "ephemeral" }` to the system message.
+     * This tells Anthropic to cache the system prompt for 3-5 minutes, reducing costs by up to 90%.
+     * 
+     * @param messages - Chat messages to format
+     * @param model - Model name to check if caching is supported
+     * @returns Formatted messages array
+     */
+    private formatMessages(messages: ChatMessage[], model?: string): any[] {
+        const useAnthropicCaching = model && this.provider === 'openrouter' && 
+            (model.includes('anthropic') || model.includes('claude'));
+        
+        return messages.map((msg, index) => {
             const formatted: any = {
                 role: msg.role,
-                content: msg.content
             };
+
+            // For Anthropic models via OpenRouter, use content array format for system message
+            // to enable caching with cache_control
+            if (useAnthropicCaching && msg.role === 'system' && index === 0) {
+                formatted.content = [
+                    {
+                        type: 'text',
+                        text: msg.content,
+                        cache_control: { type: 'ephemeral' }
+                    }
+                ];
+                console.log('[OpenAIProvider] Applied cache_control to system message for Anthropic');
+            } else {
+                formatted.content = msg.content;
+            }
 
             // Map toolCalls to tool_calls (snake_case)
             if (msg.toolCalls && msg.toolCalls.length > 0) {
@@ -292,3 +319,4 @@ export class OpenAIProvider implements LLMProviderInterface {
         });
     }
 }
+

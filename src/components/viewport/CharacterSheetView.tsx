@@ -486,11 +486,16 @@ export const CharacterSheetView: React.FC = () => {
                 {equippedItems.length > 0 && (
                   <div>
                     <div className="text-xs text-terminal-green/60 uppercase tracking-wider mb-1">Equipped Items</div>
-                    <ul className="list-disc list-inside space-y-1 text-terminal-green">
+                    <ul className="list-none space-y-1 text-terminal-green">
                       {equippedItems.map((item) => (
-                        <li key={item.id}>
+                        <li key={item.id} className="flex items-center gap-2">
+                          {item.slot && (
+                            <span className="text-xs bg-terminal-green/20 text-terminal-green px-1.5 py-0.5 rounded uppercase font-bold">
+                              {item.slot}
+                            </span>
+                          )}
                           <span className="font-semibold">{item.name}</span>
-                          {item.type ? <span className="text-terminal-green/60"> ({item.type})</span> : null}
+                          {item.type ? <span className="text-terminal-green/60 text-sm">({item.type})</span> : null}
                         </li>
                       ))}
                     </ul>

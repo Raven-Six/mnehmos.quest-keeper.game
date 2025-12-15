@@ -22,9 +22,9 @@ export const NavBar: React.FC = () => {
 
     const QuickCommand = ({ command, icon }: { command: string; icon: string }) => (
         <button
-            onClick={() => setPendingCommand(command)}
+            onClick={() => setPendingCommand(command, true)}
             className="w-full flex items-center gap-2 px-3 py-1.5 text-terminal-green/50 hover:text-terminal-green hover:bg-terminal-green/10 transition-colors text-xs font-mono"
-            title={`Insert ${command}`}
+            title={`Run ${command}`}
         >
             <span className="text-sm">{icon}</span>
             <span className="hidden md:block">{command}</span>

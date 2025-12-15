@@ -7,7 +7,7 @@ const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '..');
 
 // Paths
-const srcNativeModule = join(projectRoot, 'src-tauri', 'binaries', 'better_sqlite3.node');
+const srcNativeModule = join(projectRoot, 'src-tauri', 'better_sqlite3.node');
 const targetDebug = join(projectRoot, 'src-tauri', 'target', 'debug', 'better_sqlite3.node');
 const targetRelease = join(projectRoot, 'src-tauri', 'target', 'release', 'better_sqlite3.node');
 

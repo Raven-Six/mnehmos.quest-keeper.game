@@ -3,7 +3,7 @@
  * Now also supports returning structured data for rich visualizations
  */
 
-import { useCombatStore } from '../stores/combatStore';
+
 
 // Visualization type indicators for components
 export type VisualizationType =
@@ -46,12 +46,9 @@ function processFormattedCombatResponse(text: string): string {
                 participants: stateJson.participants?.map((p: any) => ({ name: p.name, id: p.id, hp: p.hp }))
             });
             
-            // Defer state update to avoid React render-cycle warning
-            // ("Cannot update a component while rendering a different component")
-            queueMicrotask(() => {
-              useCombatStore.getState().updateFromStateJson(stateJson);
-              console.log('[processFormattedCombatResponse] Called updateFromStateJson (deferred)');
-            });
+            // REMOVED: Side-effect state update. 
+            // State sync is now handled exclusively by LLMService.handleBatchToolSync()
+            // effectively decoupling view formatting from state mutations.
         } catch (e) {
             console.warn('[processFormattedCombatResponse] Failed to parse STATE_JSON:', e);
         }
@@ -1544,6 +1541,12 @@ export function formatEndEncounter(data: any): string {
  */
 export function formatCombatToolResponse(toolName: string, response: any): string | null {
     try {
+        // Guard against null/undefined response
+        if (response === null || response === undefined) {
+            console.warn(`[formatCombatToolResponse] Received null/undefined response for ${toolName}`);
+            return null;
+        }
+
         // Parse response if string
         const data = typeof response === 'string' ? JSON.parse(response) : response;
 

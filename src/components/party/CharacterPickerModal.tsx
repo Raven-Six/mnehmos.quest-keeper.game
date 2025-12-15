@@ -156,7 +156,7 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-      <div className="bg-terminal-black border-2 border-terminal-green rounded-xl w-full max-w-md max-h-[85vh] overflow-hidden shadow-[0_0_50px_rgba(0,255,0,0.3)] flex flex-col">
+      <div className="bg-terminal-black border-2 border-terminal-green rounded-xl w-full max-w-md max-h-[85vh] overflow-hidden shadow-glow-xl flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-terminal-green/30 bg-terminal-green/5">
           <div className="flex items-center justify-between">
@@ -178,7 +178,7 @@ export const CharacterPickerModal: React.FC<CharacterPickerModalProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search characters..."
-            className="w-full bg-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green text-sm"
+            className="w-full bg-terminal-black border border-terminal-green/50 text-terminal-green px-3 py-2 rounded-lg focus:outline-none focus:border-terminal-green text-sm"
           />
 
           {/* Type Filter */}

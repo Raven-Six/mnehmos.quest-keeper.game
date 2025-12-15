@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "npm run prepare:mcp && vite",
+    "dev:auto": "node scripts/dev-server.js",
     "build": "npm run prepare:mcp && tsc && vite build",
     "preview": "vite preview",
     "tauri": "npm run prepare:mcp && tauri",

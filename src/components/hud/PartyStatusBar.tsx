@@ -6,14 +6,13 @@ import { ConditionList } from '../common/ConditionBadge';
 /**
  * Displays status of party members.
  * Uses theme-aware styling.
- * Visualizes non-party "Guest" members differently and prevents active selection.
+ * Only shows characters from the active adventure party - not test NPCs.
  */
 export const PartyStatusBar: React.FC = () => {
   const party = useGameStateStore(s => s.party) || [];
   const activeCharacterId = useGameStateStore(s => s.activeCharacterId);
   const setActiveCharacterId = useGameStateStore(s => s.setActiveCharacterId);
   
-  // Get active adventure party to check persistence
   // Get active adventure party to check persistence
   // Fix: Select the party object first (stable) then derive members to avoid infinite loop
   const activeParty = usePartyStore(s => s.getActiveParty());
@@ -28,23 +27,18 @@ export const PartyStatusBar: React.FC = () => {
     [activePartyMembers]
   );
 
-  // Filter to only show PCs (player characters), not enemies or NPCs
+  // CHANGED: Only show characters that are in the active adventure party
+  // This filters out test NPCs, enemies, and other non-party characters
   const partyMembers = React.useMemo(() => {
     return party.filter((char: CharacterStats) => 
-      !char.characterType || char.characterType === 'pc'
+      char.id && activePartyCharacterIds.has(char.id)
     );
-  }, [party]);
+  }, [party, activePartyCharacterIds]);
 
   if (!partyMembers || partyMembers.length === 0) return null;
 
   const handleSelectCharacter = (char: CharacterStats) => {
-    // Only allow setting as ACTIVE if they are in the persistent party
-    // Otherwise we just view them (or do nothing for now)
-    if (char.id && !activePartyCharacterIds.has(char.id)) {
-      console.warn(`Character ${char.name} is a guest/temporary participant - cannot set as active POV`);
-      return;
-    }
-
+    // All displayed characters are party members, so always allow selection
     if (char.id) {
       setActiveCharacterId(char.id, true);
     }
@@ -57,7 +51,6 @@ export const PartyStatusBar: React.FC = () => {
        
        {partyMembers.map((char: CharacterStats) => {
          const isActive = char.id === activeCharacterId;
-         const isGuest = char.id ? !activePartyCharacterIds.has(char.id) : false;
          const hpPercent = char.hp.max > 0 ? (char.hp.current / char.hp.max) * 100 : 0;
          
          return (
@@ -68,9 +61,7 @@ export const PartyStatusBar: React.FC = () => {
                p-3 border-2 transition-colors w-56 font-mono rounded-sm relative overflow-hidden group cursor-pointer
                ${isActive 
                  ? 'bg-terminal-dim border-terminal-green-bright ring-2 ring-terminal-green-bright/50' 
-                 : isGuest
-                   ? 'bg-terminal-dim/50 border-terminal-green-dim/30 opacity-70 hover:opacity-100 hover:border-dashed'
-                   : 'bg-terminal-dim/90 border-terminal-green-dim hover:border-terminal-green/50 hover:bg-terminal-dim'}
+                 : 'bg-terminal-dim/90 border-terminal-green-dim hover:border-terminal-green/50 hover:bg-terminal-dim'}
              `}
            >
              {/* Scanline effect overlay - only visible in terminal theme */}
@@ -82,11 +73,6 @@ export const PartyStatusBar: React.FC = () => {
                         <span className={`font-bold text-sm truncate uppercase ${isActive ? 'text-terminal-green-bright' : 'text-terminal-green'}`}>
                             {char.name}
                         </span>
-                        {isGuest && (
-                          <span className="text-[8px] bg-terminal-green-dim/30 text-terminal-green-dim px-1 rounded uppercase tracking-wider">
-                            Guest
-                          </span>
-                        )}
                     </div>
                     <span className="text-[10px] text-terminal-green-dim flex-shrink-0">LVL {char.level}</span>
                 </div>

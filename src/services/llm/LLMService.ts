@@ -4,7 +4,7 @@ import { OpenAIProvider } from './providers/OpenAIProvider';
 import { AnthropicProvider } from './providers/AnthropicProvider';
 import { GeminiProvider } from './providers/GeminiProvider';
 import { ChatMessage, LLMProviderInterface, LLMResponse } from './types';
-import { parseMcpResponse } from '../../utils/mcpUtils';
+import { parseMcpResponse, extractEmbeddedStateJson } from '../../utils/mcpUtils';
 import { formatCombatToolResponse } from '../../utils/toolResponseFormatter';
 import { tools, getLocalTools, executeLocalTool } from '../toolRegistry';
 import { buildSystemPrompt, ContextOptions } from './contextBuilder';
@@ -157,7 +157,7 @@ class LLMService {
             console.log('[LLMService] Combat tools used - syncing 3D combat state');
             syncPromises.push(
                 import('../../stores/combatStore')
-                    .then(({ useCombatStore }) => useCombatStore.getState().syncCombatState())
+                    .then(({ useCombatStore }) => useCombatStore.getState().syncCombatState(true)) // Force sync to bypass rate limit
                     .catch(e => console.warn('[LLMService] Combat sync failed:', e))
             );
         }
@@ -178,47 +178,30 @@ class LLMService {
      * Parse tool result and extract important data (like encounter IDs)
      */
     private async parseToolResult(toolName: string, result: any): Promise<void> {
-        if (toolName === 'create_encounter') {
+        // Handle both standard and tactical encounter creation
+        if (toolName === 'create_encounter' || toolName === 'setup_tactical_encounter') {
             try {
+                // Dynamic import to avoid circular dependencies
                 const { useCombatStore } = await import('../../stores/combatStore');
                 const { usePartyStore } = await import('../../stores/partyStore');
 
-                // Try to extract encounter ID from formatted text or JSON
-                let encounterId: string | null = null;
-                let participants: Array<{ id: string; type: string; name: string }> = [];
-
-                // First try JSON parsing specific to this tool
+                // Use parseMcpResponse to unwrap MCP content format
                 const data = parseMcpResponse<any>(result, null);
-                if (data) {
-                    if (data.encounterId) encounterId = data.encounterId;
-                    if (data.participants && Array.isArray(data.participants)) {
-                        participants = data.participants;
-                    }
-                }
 
-                // If no JSON encounterId, try to extract from formatted text
-                if (!encounterId) {
-                    const textContent = result?.content?.[0]?.text || (typeof result === 'string' ? result : '');
-                    // Match "Encounter ID: encounter-xxx-yyy" or "Encounter: encounter-xxx" patterns
-                    const match = textContent.match(/Encounter(?:\s*ID)?:\s*(encounter-[^\s\n]+)/i);
-                    if (match) {
-                        encounterId = match[1];
-                    }
-                    
-                    // Also try extracting from embedded JSON
-                    if (!encounterId || participants.length === 0) {
-                        const jsonMatch = textContent.match(/<!-- STATE_JSON\n([\s\S]*?)\nSTATE_JSON -->/);
-                        if (jsonMatch && jsonMatch[1]) {
-                            try {
-                                const stateJson = JSON.parse(jsonMatch[1]);
-                                if (stateJson.encounterId) {
-                                    encounterId = stateJson.encounterId;
-                                }
-                                if (stateJson.participants && Array.isArray(stateJson.participants)) {
-                                    participants = stateJson.participants;
-                                }
-                            } catch { /* ignore parse errors */ }
-                        }
+                // Extract encounter ID from parsed data (supports various field names)
+                let encounterId = data?.encounterId || data?.encounter?.id || data?.id;
+
+                // Fallback: If data is string (text response), try to extract embedded JSON
+                if (!encounterId && typeof data === 'string') {
+                    const embedded = extractEmbeddedStateJson(data);
+                    if (embedded) {
+                        encounterId = embedded.encounterId || embedded.encounter?.id || embedded.id;
+                    } else {
+                         // Fallback 2: Regex search in text
+                         const match = data.match(/Encounter ID: (encounter-[\w-]+)/);
+                         if (match) {
+                             encounterId = match[1];
+                         }
                     }
                 }
 
@@ -226,36 +209,21 @@ class LLMService {
                     console.log(`[LLMService] Setting active encounter ID: ${encounterId}`);
                     useCombatStore.getState().setActiveEncounterId(encounterId);
 
-                    // AUTO-ADD ENCOUNTER MEMBERS TO ACTIVE PARTY
-                    const { activePartyId, addMember, getActiveParty } = usePartyStore.getState();
-                    
-                    if (activePartyId && participants.length > 0) {
-                        const activeParty = getActiveParty();
-                        const existingMemberIds = new Set(activeParty?.members.map(m => m.character.id) || []);
-                        
-                        let addedCount = 0;
-                        for (const char of participants) {
-                            // Only auto-add PCs that aren't already in the party
-                            if (char.type === 'pc' && !existingMemberIds.has(char.id)) {
-                                console.log(`[LLMService] Auto-adding ${char.name} (${char.id}) to party ${activePartyId}`);
-                                try {
-                                    await addMember(activePartyId, char.id, 'member');
-                                    addedCount++;
-                                } catch (e) {
-                                    console.warn(`[LLMService] Failed to auto-add ${char.name} to party:`, e);
-                                }
-                            }
-                        }
-                        
-                        if (addedCount > 0) {
-                            console.log(`[LLMService] Successfully auto-added ${addedCount} members to the active party.`);
+                    // If it was a standard encounter creation, try to add active party members automatically
+                    // (setup_tactical_encounter usually handles this internally)
+                    if (toolName === 'create_encounter') {
+                        const { activePartyId, partyDetails } = usePartyStore.getState();
+                        const party = activePartyId ? partyDetails[activePartyId] : null;
+
+                        if (party && party.members.length > 0) {
+                            console.log(`[LLMService] Active party has ${party.members.length} members. Expecting LLM to add them or user to intervene.`);
                         }
                     }
                 } else {
-                    console.warn('[LLMService] Could not find encounter ID in create_encounter result');
+                    console.warn(`[LLMService] Could not find encounter ID in ${toolName} result. Parsed data:`, data);
                 }
             } catch (e) {
-                console.warn('[LLMService] Failed to parse create_encounter result:', e);
+                console.warn(`[LLMService] Failed to parse ${toolName} result:`, e);
             }
         }
 

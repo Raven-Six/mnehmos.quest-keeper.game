@@ -174,7 +174,7 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-      <div className="bg-terminal-black border-2 border-terminal-green rounded-lg w-full max-w-2xl mx-4 shadow-[0_0_30px_rgba(0,255,0,0.3)]">
+      <div className="bg-terminal-black border-2 border-terminal-green rounded-lg w-full max-w-2xl mx-4 shadow-glow-lg">
         {/* Header */}
         <div className="border-b border-terminal-green p-4 flex justify-between items-center">
           <h2 className="text-xl font-bold text-terminal-green">
@@ -304,7 +304,7 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                   value={wizardState.campaignName}
                   onChange={(e) => updateField('campaignName', e.target.value)}
                   placeholder="e.g., Curse of Strahd"
-                  className="w-full bg-black border border-terminal-green rounded px-3 py-2 text-terminal-green focus:outline-none focus:border-terminal-green-bright"
+                  className="w-full bg-terminal-black border border-terminal-green rounded px-3 py-2 text-terminal-green focus:outline-none focus:border-terminal-green-bright"
                 />
               </div>
               <div>
@@ -316,7 +316,7 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                   onChange={(e) => updateField('description', e.target.value)}
                   placeholder="Brief description of the campaign..."
                   rows={3}
-                  className="w-full bg-black border border-terminal-green rounded px-3 py-2 text-terminal-green focus:outline-none focus:border-terminal-green-bright resize-none"
+                  className="w-full bg-terminal-black border border-terminal-green rounded px-3 py-2 text-terminal-green focus:outline-none focus:border-terminal-green-bright resize-none"
                 />
               </div>
             </div>
@@ -341,7 +341,7 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                     value={newWorldName}
                     onChange={(e) => setNewWorldName(e.target.value)}
                     placeholder="Enter world name..."
-                    className="flex-1 bg-black border border-terminal-green rounded px-3 py-2 text-terminal-green text-sm focus:outline-none focus:border-terminal-green-bright"
+                    className="flex-1 bg-terminal-black border border-terminal-green rounded px-3 py-2 text-terminal-green text-sm focus:outline-none focus:border-terminal-green-bright"
                   />
                   <button
                     onClick={() => {
@@ -655,7 +655,7 @@ Generate an immersive opening scene. Describe the environment, atmosphere, and a
                     value={wizardState.startingLocationName}
                     onChange={(e) => updateField('startingLocationName', e.target.value)}
                     placeholder="e.g., The Sunken Temple"
-                    className="w-full bg-black border border-terminal-green rounded px-3 py-2 text-terminal-green focus:outline-none focus:border-terminal-green-bright"
+                    className="w-full bg-terminal-black border border-terminal-green rounded px-3 py-2 text-terminal-green focus:outline-none focus:border-terminal-green-bright"
                   />
                 </div>
               )}
@@ -705,7 +705,7 @@ Be evocative and concise.`;
                   placeholder="What's happening as the adventure begins?"
                   rows={3}
                   disabled={isGeneratingContext}
-                  className="w-full bg-black border border-terminal-green rounded px-3 py-2 text-terminal-green focus:outline-none focus:border-terminal-green-bright resize-none disabled:opacity-50"
+                  className="w-full bg-terminal-black border border-terminal-green rounded px-3 py-2 text-terminal-green focus:outline-none focus:border-terminal-green-bright resize-none disabled:opacity-50"
                 />
               </div>
             </div>

@@ -160,7 +160,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full bg-black border-2 border-terminal-green/50 text-terminal-green px-4 py-3 rounded-lg focus:outline-none focus:border-terminal-green-bright focus:shadow-[0_0_10px_rgba(0,255,0,0.3)] transition-all"
+          className="w-full bg-terminal-black border-2 border-terminal-green/50 text-terminal-green px-4 py-3 rounded-lg focus:outline-none focus:border-terminal-green-bright focus:shadow-[0_0_10px_rgba(0,255,0,0.3)] transition-all"
           placeholder="The Fellowship of the Ring..."
           autoFocus
           maxLength={50}
@@ -178,7 +178,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full h-24 bg-black border border-terminal-green/50 text-terminal-green px-4 py-3 rounded-lg focus:outline-none focus:border-terminal-green-bright resize-none"
+          className="w-full h-24 bg-terminal-black border border-terminal-green/50 text-terminal-green px-4 py-3 rounded-lg focus:outline-none focus:border-terminal-green-bright resize-none"
           placeholder="A band of adventurers united by fate..."
           maxLength={200}
         />
@@ -262,7 +262,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
                       value={memberData?.role || 'member'}
                       onChange={(e) => handleRoleChange(char.id, e.target.value as MemberRole)}
                       onClick={(e) => e.stopPropagation()}
-                      className="bg-black border border-terminal-green/50 text-terminal-green text-xs px-2 py-1 rounded"
+                      className="bg-terminal-black border border-terminal-green/50 text-terminal-green text-xs px-2 py-1 rounded"
                     >
                       {ROLE_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -363,7 +363,7 @@ export const PartyCreatorModal: React.FC<PartyCreatorModalProps> = ({ isOpen, on
 
   return (
     <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-      <div className="bg-terminal-black border-2 border-terminal-green rounded-xl w-full max-w-lg max-h-[90vh] overflow-hidden shadow-[0_0_50px_rgba(0,255,0,0.3)] flex flex-col">
+      <div className="bg-terminal-black border-2 border-terminal-green rounded-xl w-full max-w-lg max-h-[90vh] overflow-hidden shadow-glow-xl flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-terminal-green/30 bg-terminal-green/5">
           <div className="flex items-center justify-between mb-3">

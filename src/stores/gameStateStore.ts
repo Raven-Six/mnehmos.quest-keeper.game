@@ -13,6 +13,7 @@ export interface InventoryItem {
   weight?: number;
   value?: number;
   equipped?: boolean;
+  slot?: 'mainhand' | 'offhand' | 'armor' | 'head' | 'feet' | 'accessory';
 }
 
 export interface EnvironmentState {
@@ -372,7 +373,8 @@ function parseInventoryFromJson(inventoryData: any): InventoryItem[] {
       type: refItem?.type || fullItem.type || item.type || 'misc',
       weight: refItem?.weight || fullItem.weight || item.weight,
       value: refItem ? parseFloat(refItem.value?.replace(/[^0-9.]/g, '') || '0') : (fullItem.value ?? item.value),
-      equipped: item.equipped || fullItem.equipped || false
+      equipped: item.equipped || fullItem.equipped || false,
+      slot: item.slot || fullItem.slot || undefined
     });
   });
 

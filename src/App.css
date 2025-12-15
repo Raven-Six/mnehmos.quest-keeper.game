@@ -134,6 +134,20 @@
   .markdown-content hr {
     @apply border-terminal-green-dim my-4;
   }
+
+  /* Theme-aware glow shadows - adapt to theme colors */
+  .shadow-glow-sm {
+    box-shadow: 0 0 10px var(--glow-color);
+  }
+  .shadow-glow {
+    box-shadow: 0 0 20px var(--glow-color);
+  }
+  .shadow-glow-lg {
+    box-shadow: 0 0 30px var(--glow-color);
+  }
+  .shadow-glow-xl {
+    box-shadow: 0 0 50px var(--glow-color);
+  }
 }
 
 /* ============================================

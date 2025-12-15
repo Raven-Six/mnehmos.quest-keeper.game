@@ -4,6 +4,7 @@ import { mcpManager } from '../../services/mcpClient';
 import { useGameStateStore } from '../../stores/gameStateStore';
 import { useCombatStore } from '../../stores/combatStore';
 import { useUIStore, ActiveTab } from '../../stores/uiStore';
+import { setPlaytestMode, isPlaytestModeEnabled } from '../../services/llm/contextBuilder';
 
 // Slash command result interface
 interface CommandResult {
@@ -103,14 +104,28 @@ export const ChatInput: React.FC = () => {
 
   // Quick Command Dispatch - consume commands from sidebar buttons
   const pendingCommand = useUIStore((state) => state.pendingCommand);
+  const executeCommandImmediately = useUIStore((state) => state.executeCommandImmediately);
   const clearPendingCommand = useUIStore((state) => state.clearPendingCommand);
   
   useEffect(() => {
     if (pendingCommand) {
-      setInput(pendingCommand);
+      if (executeCommandImmediately) {
+        // Auto-execute the command immediately by setting input and submitting
+        setInput(pendingCommand);
+        // Use setTimeout to ensure input state is set before submitting
+        setTimeout(() => {
+          const form = document.querySelector('form');
+          if (form) {
+            form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+          }
+        }, 0);
+      } else {
+        // Just fill the input
+        setInput(pendingCommand);
+      }
       clearPendingCommand();
     }
-  }, [pendingCommand, clearPendingCommand]);
+  }, [pendingCommand, executeCommandImmediately, clearPendingCommand]);
 
   // Command Hints Rotation
   const COMMAND_HINTS = [
@@ -517,6 +532,25 @@ export const ChatInput: React.FC = () => {
       case 'clear': {
         useChatStore.getState().clearHistory();
         return { content: `✓ Chat cleared`, type: 'success' };
+      }
+
+      case 'playtest': {
+        // Toggle playtest mode for systematic testing
+        const currentlyEnabled = isPlaytestModeEnabled();
+        const newState = !currentlyEnabled;
+        setPlaytestMode(newState);
+        
+        if (newState) {
+          return { 
+            content: `🧪 **Playtest Mode ENABLED**\n\nThe AI DM is now in testing mode. Try:\n- \`test combat\` - Full combat flow test\n- \`test aoe\` - AoE damage test\n- \`test turns\` - Turn skipping test\n\nType \`/playtest\` again to disable.`,
+            type: 'success'
+          };
+        } else {
+          return { 
+            content: `🎭 **Playtest Mode DISABLED**\n\nReturning to normal DM mode.`,
+            type: 'success'
+          };
+        }
       }
   
       // === CHARACTER COMMANDS ===

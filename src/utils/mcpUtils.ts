@@ -229,3 +229,27 @@ export function throttle<T extends (...args: any[]) => any>(
     }
   };
 }
+/**
+ * Extract embedded JSON from tool response text
+ * Looks for <!-- STATE_JSON ... STATE_JSON --> markers
+ */
+export function extractEmbeddedStateJson(text: string): any | null {
+  // DEBUG: Log what we're receiving
+  console.log('[extractEmbeddedStateJson] Input length:', text?.length);
+  console.log('[extractEmbeddedStateJson] Has STATE_JSON marker:', text?.includes('STATE_JSON'));
+  
+  const match = text.match(/<!-- STATE_JSON\n([\s\S]*?)\nSTATE_JSON -->/);
+  console.log('[extractEmbeddedStateJson] Regex match result:', !!match);
+  
+  if (match && match[1]) {
+    try {
+      const parsed = JSON.parse(match[1]);
+      console.log('[extractEmbeddedStateJson] Successfully parsed JSON with keys:', Object.keys(parsed));
+      return parsed;
+    } catch (e) {
+      console.warn('[extractEmbeddedStateJson] Failed to parse embedded JSON:', e);
+      return null;
+    }
+  }
+  return null;
+}

@@ -1157,7 +1157,7 @@ export const CharacterCreationModal: React.FC<CharacterCreationModalProps> = ({ 
 
     return (
         <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-terminal-black border-2 border-terminal-green rounded-xl w-full max-w-xl max-h-[90vh] overflow-hidden shadow-[0_0_50px_rgba(0,255,0,0.3)] flex flex-col">
+            <div className="bg-terminal-black border-2 border-terminal-green rounded-xl w-full max-w-xl max-h-[90vh] overflow-hidden shadow-glow-xl flex flex-col">
                 {/* Header */}
                 <div className="p-4 border-b border-terminal-green/30 bg-terminal-green/5">
                     <div className="flex items-center justify-between mb-3">

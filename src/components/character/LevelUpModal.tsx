@@ -49,7 +49,7 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="bg-terminal-black border border-terminal-green p-6 w-[400px] shadow-[0_0_30px_rgba(34,197,94,0.2)] relative">
+      <div className="bg-terminal-black border border-terminal-green p-6 w-[400px] shadow-glow-lg relative">
         <h2 className="text-2xl font-bold text-terminal-green-bright mb-2 text-center">
           LEVEL UP AVAILABLE!
         </h2>

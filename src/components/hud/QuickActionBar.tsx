@@ -22,8 +22,8 @@ export const QuickActionBar: React.FC = () => {
     const clearCombat = useCombatStore(s => s.clearCombat);
     
     const handleClearScene = () => {
-        if (window.confirm('Clear the local scene? Visuals will be reset, but will re-sync with active encounter.')) {
-            clearCombat(true);
+        if (window.confirm('Clear the scene completely? This will reset all combat visuals and the active encounter.')) {
+            clearCombat(false); // Full reset including encounter ID
         }
     };
 

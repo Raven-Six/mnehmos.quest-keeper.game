@@ -22,7 +22,7 @@ export const MainViewport: React.FC<MainViewportProps> = ({ className }) => {
       case 'adventure':
         return <AdventureView />;
       case 'combat':
-        return <BattlemapCanvas />;
+        return null; // Handled separately to preserve WebGL context
       case 'character':
         return <CharacterSheetView />;
       case 'map':
@@ -40,6 +40,10 @@ export const MainViewport: React.FC<MainViewportProps> = ({ className }) => {
     <div className={`flex flex-col bg-terminal-black h-full border-l border-terminal-green-dim ${className || ''}`}>
       {/* Content Area */}
       <div className={`flex-1 text-terminal-green font-mono flex relative overflow-hidden ${activeTab === 'combat' ? '' : 'bg-terminal-black'}`}>
+        
+        {/* Persistently mounted BattlemapCanvas to prevent WebGL context loss */}
+        <BattlemapCanvas active={activeTab === 'combat'} />
+
         {/* CRT Grid Effect Background - Only for 3D view in Terminal theme */}
         {activeTab === 'combat' && theme === 'terminal' && (
           <div className="absolute inset-0 opacity-10 pointer-events-none z-10"
@@ -47,7 +51,12 @@ export const MainViewport: React.FC<MainViewportProps> = ({ className }) => {
           </div>
         )}
 
-        {renderContent()}
+        {/* Other views are unmounted when not active */}
+        {activeTab !== 'combat' && (
+          <div className="absolute inset-0 flex flex-col w-full h-full bg-terminal-black z-20">
+            {renderContent()}
+          </div>
+        )}
       </div>
     </div>
   );

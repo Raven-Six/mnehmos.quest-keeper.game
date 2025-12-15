@@ -52,7 +52,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-lg border border-terminal-green bg-terminal-black p-6 shadow-[0_0_20px_rgba(0,255,0,0.2)]">
+            <div className="w-full max-w-md rounded-lg border border-terminal-green bg-terminal-black p-6 shadow-glow">
                 <div className="mb-6 flex items-center justify-between border-b border-terminal-green-dim pb-4">
                     <h2 className="text-xl font-bold text-terminal-green">CONFIGURATION</h2>
                     <button

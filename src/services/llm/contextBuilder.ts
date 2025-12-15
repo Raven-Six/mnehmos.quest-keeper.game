@@ -17,6 +17,7 @@ import { parseMcpResponse } from '../../utils/mcpUtils';
 // Default static prompts - loaded from markdown files at build time
 import layer1IdentityDefault from './context/layer1-identity.md?raw';
 import layer2RulesDefault from './context/layer2-rules.md?raw';
+import playtestModePrompt from './context/playtest-mode.md?raw';
 
 // ============================================================================
 // TYPES
@@ -56,6 +57,7 @@ export interface ContextLayers {
 
 const STORAGE_KEY_LAYER1 = 'questkeeper_prompt_layer1';
 const STORAGE_KEY_LAYER2 = 'questkeeper_prompt_layer2';
+const STORAGE_KEY_PLAYTEST_MODE = 'questkeeper_playtest_mode';
 
 /**
  * Get Layer 1 prompt (runtime-editable via localStorage)
@@ -104,7 +106,38 @@ export function resetPromptsToDefaults(): void {
   if (typeof localStorage !== 'undefined') {
     localStorage.removeItem(STORAGE_KEY_LAYER1);
     localStorage.removeItem(STORAGE_KEY_LAYER2);
+    localStorage.removeItem(STORAGE_KEY_PLAYTEST_MODE);
   }
+}
+
+/**
+ * Check if playtest mode is enabled
+ */
+export function isPlaytestModeEnabled(): boolean {
+  if (typeof localStorage !== 'undefined') {
+    return localStorage.getItem(STORAGE_KEY_PLAYTEST_MODE) === 'true';
+  }
+  return false;
+}
+
+/**
+ * Toggle playtest mode on/off
+ */
+export function setPlaytestMode(enabled: boolean): void {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY_PLAYTEST_MODE, enabled ? 'true' : 'false');
+  }
+  console.log(`[ContextBuilder] Playtest mode ${enabled ? 'enabled' : 'disabled'}`);
+}
+
+/**
+ * Get the playtest mode prompt (if enabled)
+ */
+export function getPlaytestModePrompt(): string {
+  if (isPlaytestModeEnabled()) {
+    return playtestModePrompt;
+  }
+  return '';
 }
 
 // ============================================================================
@@ -139,6 +172,7 @@ async function fetchWorldContext(worldId: string, verbosity: Verbosity): Promise
 
 /**
  * Fetch Layer 4: Party & Character Context
+ * Includes explicit UUID injection so LLM uses correct IDs for tool calls
  */
 async function fetchPartyContext(partyId: string | undefined, characterId: string | undefined, verbosity: Verbosity): Promise<string> {
   if (!partyId && !characterId) return '';
@@ -168,6 +202,17 @@ async function fetchPartyContext(partyId: string | undefined, characterId: strin
     const results = await Promise.all(promises);
     
     const sections: string[] = [];
+    
+    // CRITICAL: Inject explicit UUID references for tool calls
+    // This ensures the LLM uses real UUIDs instead of slugs like "pc-1"
+    if (partyId) {
+      sections.push(`## ACTIVE PARTY REFERENCE\n**IMPORTANT**: When calling setup_tactical_encounter, create_encounter, or party tools, use this party ID:\n\`\`\`\npartyId: "${partyId}"\n\`\`\``);
+    }
+    
+    if (characterId) {
+      sections.push(`## ACTIVE CHARACTER REFERENCE\n**IMPORTANT**: When calling combat tools (execute_combat_action, cast_spell, etc.), use this exact character ID:\n\`\`\`\nactorId: "${characterId}"\n\`\`\``);
+    }
+    
     for (const result of results) {
       if (result?.content?.[0]?.text) {
         sections.push(result.content[0].text);
@@ -325,6 +370,13 @@ export async function buildSystemPrompt(options: ContextOptions): Promise<string
   
   // Assemble with section markers
   const sections: string[] = [layer1];
+  
+  // Add playtest mode if enabled (injected early for AI context)
+  const playtestModeLayer = getPlaytestModePrompt();
+  if (playtestModeLayer) {
+    sections.push('---\n' + playtestModeLayer);
+    console.log('[ContextBuilder] Including playtest mode prompt');
+  }
   
   if (layer2) sections.push('---\n' + layer2);
   if (layer3) sections.push('---\n' + layer3);
