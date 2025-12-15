@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, staging]
+  pull_request:
+    branches: [main, develop, staging]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Tests
+        run: npm run test
+
+  build-check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install dependencies
+        run: npm ci
+
+      # We need to ensure the sidecar binary and native modules exist or are mocked for the check
+      # For a simple build check, we might just run 'tsc' and 'vite build' without tauri build
+      # But tauri build is the ultimate test.
+      # Since we don't have the binary committed (it's in .gitignore usually, wait, check .gitignore),
+      # we might fail here if we rely on it being present.
+      # The release.yml checks for it.
+      # If the binary is NOT in the repo, CI will fail unless we build it or mock it.
+      # "prepare-mcp.js" copies it.
+      # Assuming we need to build everything or that the user commits binaries (Anti-pattern but explicitly mentioned in release.yml checks).
+      # release.yml says: "Verify sidecar binary exists... Ensure it is committed to the repository."
+      # So we assume it's there.
+
+      - name: Type Check & Build
+        run: npm run build

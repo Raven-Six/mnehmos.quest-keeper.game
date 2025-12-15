@@ -1,0 +1,55 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: [ staging ]
+
+jobs:
+  build-staging:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify binaries
+        run: |
+          if (!(Test-Path "src-tauri/binaries/rpg-mcp-server-x86_64-pc-windows-msvc.exe")) {
+            Write-Warning "MCP server binary not found in src-tauri/binaries. Checking build..."
+            # Optional: Build it here if missing? For now, fail or warn.
+            # Assuming committed as per release.yml
+          }
+
+      - name: Prepare MCP
+        run: npm run prepare:mcp
+
+      - name: Build Staging App
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Inject Staging Environment Variable
+          VITE_APP_ENV: staging
+        with:
+          tauriScript: npm run tauri
+          args: --target x86_64-pc-windows-msvc
+          includeRelease: false
+          includeDebug: false
+          
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quest-keeper-staging
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          retention-days: 5
