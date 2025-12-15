@@ -106,6 +106,21 @@ vi.mock('../../stores/chatStore', () => ({
   }),
 }));
 
+vi.mock('../../stores/partyStore', () => ({
+  usePartyStore: vi.fn((selector) => {
+    const mockState = {
+      getActiveParty: () => ({
+        id: 'party-1',
+        members: [
+          { character: { id: 'char-gandalf' } },
+          { character: { id: 'char-frodo' } }
+        ]
+      })
+    };
+    return selector(mockState);
+  }),
+}));
+
 // Import components after mocks
 import { TurnOrderBar } from './TurnOrderBar';
 import { PartyStatusBar } from './PartyStatusBar';
@@ -135,21 +150,21 @@ describe('PartyStatusBar', () => {
   it('renders party members', () => {
     render(<PartyStatusBar />);
     
-    expect(screen.getAllByText((_, node) => node?.textContent?.includes('Gandalf') ?? false)[0]).toBeInTheDocument();
-    expect(screen.getAllByText((_, node) => node?.textContent?.includes('Frodo') ?? false)[0]).toBeInTheDocument();
+    expect(screen.getAllByText((_, node) => (node?.textContent?.includes('Gandalf') ?? false) && (node?.tagName?.toLowerCase() === 'span'))[0]).toBeInTheDocument();
+    expect(screen.getAllByText((_, node) => (node?.textContent?.includes('Frodo') ?? false) && (node?.tagName?.toLowerCase() === 'span'))[0]).toBeInTheDocument();
   });
 
   it('shows Party header', () => {
     render(<PartyStatusBar />);
     
-    expect(screen.getByText('Party')).toBeInTheDocument();
+    expect(screen.getByText('Party Roster')).toBeInTheDocument();
   });
 
   it('displays HP values for each member', () => {
     render(<PartyStatusBar />);
     
-    expect(screen.getAllByText((_, node) => node?.textContent?.includes('HP 80/100') ?? false)[0]).toBeInTheDocument();
-    expect(screen.getAllByText((_, node) => node?.textContent?.includes('HP 25/30') ?? false)[0]).toBeInTheDocument();
+    expect(screen.getAllByText((_, node) => (node?.textContent?.includes('HP 80/100') ?? false) && (node?.tagName?.toLowerCase() === 'span'))[0]).toBeInTheDocument();
+    expect(screen.getAllByText((_, node) => (node?.textContent?.includes('HP 25/30') ?? false) && (node?.tagName?.toLowerCase() === 'span'))[0]).toBeInTheDocument();
   });
 
   it('displays AC values for each member', () => {
@@ -162,8 +177,8 @@ describe('PartyStatusBar', () => {
   it('displays level for each member', () => {
     render(<PartyStatusBar />);
     
-    expect(screen.getByText('Lvl 20')).toBeInTheDocument();
-    expect(screen.getByText('Lvl 5')).toBeInTheDocument();
+    expect(screen.getByText('LVL 20')).toBeInTheDocument();
+    expect(screen.getByText('LVL 5')).toBeInTheDocument();
   });
 });
 
@@ -171,25 +186,25 @@ describe('QuickActionBar', () => {
   it('renders action buttons', () => {
     render(<QuickActionBar />);
     
-    expect(screen.getAllByText((_, node) => node?.textContent?.includes('Inventory') ?? false)[0]).toBeInTheDocument();
-    expect(screen.getAllByText((_, node) => node?.textContent?.includes('Melee Attack') ?? false)[0]).toBeInTheDocument();
-    expect(screen.getAllByText((_, node) => node?.textContent?.includes('Cast Spell') ?? false)[0]).toBeInTheDocument();
-    expect(screen.getAllByText((_, node) => node?.textContent?.includes('End Turn') ?? false)[0]).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Inventory/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Spellbook/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Line of Sight/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /End Combat/i })).toBeInTheDocument();
   });
 
   it('renders action icons', () => {
     render(<QuickActionBar />);
     
     expect(screen.getByText('🎒')).toBeInTheDocument();
+    expect(screen.getByText('📖')).toBeInTheDocument();
+    expect(screen.getByText('👁️')).toBeInTheDocument();
     expect(screen.getByText('⚔️')).toBeInTheDocument();
-    expect(screen.getByText('🔮')).toBeInTheDocument();
-    expect(screen.getByText('⏳')).toBeInTheDocument();
   });
 
   it('inventory button is clickable', () => {
     render(<QuickActionBar />);
     
-    const inventoryButton = screen.getAllByText((_, node) => node?.textContent?.includes('Inventory') ?? false)[0].closest('button');
+    const inventoryButton = screen.getByRole('button', { name: /Inventory/i });
     expect(inventoryButton).not.toBeNull();
     fireEvent.click(inventoryButton!);
     
@@ -214,8 +229,8 @@ describe('User Interaction Flows', () => {
       render(<TurnOrderBar />);
       
       // The current turn (Gandalf) should be visually distinct
-      const gandalfElement = screen.getAllByText((_, node) => node?.textContent?.includes('Gandalf') ?? false)[0].closest('div');
-      expect(gandalfElement).toHaveClass('bg-indigo-600');
+      const gandalfElement = screen.getAllByText((_, node) => (node?.textContent?.includes('Gandalf') ?? false) && (node?.tagName?.toLowerCase() === 'span'))[0].closest('div');
+      expect(gandalfElement).toHaveClass('bg-terminal-green/20');
     });
 
     it('player can see all combatants in initiative order', () => {
@@ -231,15 +246,15 @@ describe('User Interaction Flows', () => {
       render(<PartyStatusBar />);
       
       // Both party members should be visible with HP
-      expect(screen.getAllByText((_, node) => node?.textContent?.includes('HP 80/100') ?? false)[0]).toBeInTheDocument();
-      expect(screen.getAllByText((_, node) => node?.textContent?.includes('HP 25/30') ?? false)[0]).toBeInTheDocument();
+      expect(screen.getAllByText((_, node) => (node?.textContent?.includes('HP 80/100') ?? false) && (node?.tagName?.toLowerCase() === 'span'))[0]).toBeInTheDocument();
+      expect(screen.getAllByText((_, node) => (node?.textContent?.includes('HP 25/30') ?? false) && (node?.tagName?.toLowerCase() === 'span'))[0]).toBeInTheDocument();
     });
 
     it('low HP member should have red HP bar', () => {
       // This would require CSS class checking or visual regression
       // For now, just verify the HP is displayed
       render(<PartyStatusBar />);
-      expect(screen.getAllByText((_, node) => node?.textContent?.includes('HP 25/30') ?? false)[0]).toBeInTheDocument();
+      expect(screen.getAllByText((_, node) => (node?.textContent?.includes('HP 25/30') ?? false) && (node?.tagName?.toLowerCase() === 'span'))[0]).toBeInTheDocument();
     });
   });
 
@@ -248,15 +263,15 @@ describe('User Interaction Flows', () => {
       render(<QuickActionBar />);
       
       // All common actions should be accessible
-      const inventoryBtn = screen.getAllByText((_, node) => node?.textContent?.includes('Inventory') ?? false)[0].closest('button');
-      const attackBtn = screen.getAllByText((_, node) => node?.textContent?.includes('Melee Attack') ?? false)[0].closest('button');
-      const spellBtn = screen.getAllByText((_, node) => node?.textContent?.includes('Cast Spell') ?? false)[0].closest('button');
-      const endTurnBtn = screen.getAllByText((_, node) => node?.textContent?.includes('End Turn') ?? false)[0].closest('button');
+      const inventoryBtn = screen.getByRole('button', { name: /Inventory/i });
+      const spellbookBtn = screen.getByRole('button', { name: /Spellbook/i });
+      const losBtn = screen.getByRole('button', { name: /Line of Sight/i });
+      const endCombatBtn = screen.getByRole('button', { name: /End Combat/i });
       
       expect(inventoryBtn).toBeEnabled();
-      expect(attackBtn).toBeEnabled();
-      expect(spellBtn).toBeEnabled();
-      expect(endTurnBtn).toBeEnabled();
+      expect(spellbookBtn).toBeEnabled();
+      expect(losBtn).toBeEnabled();
+      expect(endCombatBtn).toBeEnabled();
     });
   });
 });
