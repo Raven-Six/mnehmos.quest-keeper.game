@@ -15,10 +15,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         selectedProvider,
         providerModels,
         systemPrompt,
+        llamaCppSettings,
         setApiKey,
         setProvider,
         setModel,
         setSystemPrompt,
+        setLlamaCppEndpoint,
+        setLlamaCppMaxConcurrency,
+        setLlamaCppTimeout,
     } = useSettingsStore();
 
     const handleOpenLogs = async () => {
@@ -76,25 +80,91 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             <option value="anthropic">Anthropic</option>
                             <option value="gemini">Google Gemini</option>
                             <option value="openrouter">OpenRouter</option>
+                            <option value="llamacpp">llama.cpp (Local)</option>
                         </select>
                         <p className="text-xs text-terminal-green-dim">
                             This sets the active provider for all chat interactions.
                         </p>
                     </div>
 
-                    {/* API Key */}
-                    <div className="space-y-2">
-                        <label className="block text-sm font-bold text-terminal-green">
-                            {selectedProvider.toUpperCase()} API KEY
-                        </label>
-                        <input
-                            type="password"
-                            value={apiKeys[selectedProvider]}
-                            onChange={(e) => setApiKey(selectedProvider, e.target.value)}
-                            className="w-full rounded border border-terminal-green bg-black px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
-                            placeholder={`Enter ${selectedProvider} API Key`}
-                        />
-                    </div>
+                    {/* API Key - not needed for llama.cpp */}
+                    {selectedProvider !== 'llamacpp' && (
+                        <div className="space-y-2">
+                            <label className="block text-sm font-bold text-terminal-green">
+                                {selectedProvider.toUpperCase()} API KEY
+                            </label>
+                            <input
+                                type="password"
+                                value={apiKeys[selectedProvider]}
+                                onChange={(e) => setApiKey(selectedProvider, e.target.value)}
+                                className="w-full rounded border border-terminal-green bg-black px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
+                                placeholder={`Enter ${selectedProvider} API Key`}
+                            />
+                        </div>
+                    )}
+
+                    {/* llama.cpp-specific settings */}
+                    {selectedProvider === 'llamacpp' && llamaCppSettings && (
+                        <div className="space-y-4 rounded border border-terminal-green-dim bg-black/30 p-4">
+                            <div className="text-xs font-bold text-terminal-green-dim uppercase">
+                                llama.cpp Server Configuration
+                            </div>
+
+                            {/* Endpoint URL */}
+                            <div className="space-y-2">
+                                <label className="block text-sm font-bold text-terminal-green">
+                                    SERVER ENDPOINT
+                                </label>
+                                <input
+                                    type="text"
+                                    value={llamaCppSettings.endpoint}
+                                    onChange={(e) => setLlamaCppEndpoint(e.target.value)}
+                                    className="w-full rounded border border-terminal-green bg-black px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
+                                    placeholder="http://localhost:8080"
+                                />
+                                <p className="text-xs text-terminal-green-dim">
+                                    URL of llama.cpp server (must be running independently)
+                                </p>
+                            </div>
+
+                            {/* Max Concurrency */}
+                            <div className="space-y-2">
+                                <label className="block text-sm font-bold text-terminal-green">
+                                    MAX CONCURRENT TOOL CALLS
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="10"
+                                    value={llamaCppSettings.maxConcurrency}
+                                    onChange={(e) => setLlamaCppMaxConcurrency(parseInt(e.target.value) || 4)}
+                                    className="w-full rounded border border-terminal-green bg-black px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
+                                />
+                                <p className="text-xs text-terminal-green-dim">
+                                    Maximum parallel tool calls (1-10, default: 4)
+                                </p>
+                            </div>
+
+                            {/* Request Timeout */}
+                            <div className="space-y-2">
+                                <label className="block text-sm font-bold text-terminal-green">
+                                    REQUEST TIMEOUT (ms)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="5000"
+                                    max="300000"
+                                    step="1000"
+                                    value={llamaCppSettings.timeout}
+                                    onChange={(e) => setLlamaCppTimeout(parseInt(e.target.value) || 30000)}
+                                    className="w-full rounded border border-terminal-green bg-black px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
+                                />
+                                <p className="text-xs text-terminal-green-dim">
+                                    Request timeout in milliseconds (default: 30000)
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Model Selection */}
                     <div className="space-y-2">
@@ -158,6 +228,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         <option value="gemini-3-pro">Gemini 3 Pro</option>
                                         <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
                                         <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                                    </>
+                                )}
+                                {selectedProvider === 'llamacpp' && (
+                                    <>
+                                        <option value="llama-3.2-3b-instruct">Llama 3.2 3B Instruct</option>
+                                        <option value="llama-3.1-8b-instruct">Llama 3.1 8B Instruct</option>
+                                        <option value="mistral-7b-instruct">Mistral 7B Instruct</option>
+                                        <option value="qwen2.5-7b-instruct">Qwen 2.5 7B Instruct</option>
+                                        <option value="deepseek-r1">DeepSeek R1</option>
                                     </>
                                 )}
                             </select>

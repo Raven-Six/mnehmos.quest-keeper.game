@@ -22,6 +22,15 @@ export class OpenAIProvider implements LLMProviderInterface {
 
         let baseUrl = 'https://api.openai.com/v1/chat/completions';
 
+        // llama.cpp uses custom endpoint
+        if (this.provider === 'llamacpp') {
+            const { useSettingsStore } = await import('../../../stores/settingsStore');
+            const endpoint = useSettingsStore.getState().llamaCppSettings.endpoint;
+            baseUrl = endpoint
+                ? `${endpoint}/v1/chat/completions`
+                : 'http://localhost:8080/v1/chat/completions';
+        }
+
         if (model.includes('/') || this.provider === 'openrouter') {
             baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
             headers['HTTP-Referer'] = 'https://questkeeper.ai';
@@ -90,6 +99,15 @@ export class OpenAIProvider implements LLMProviderInterface {
 
             return result;
         } catch (error: any) {
+            // Enhanced error handling for llama.cpp
+            if (this.provider === 'llamacpp') {
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    throw new Error('Cannot connect to llama.cpp server. Please verify:\n1. The server is running\n2. The endpoint URL is correct\n3. The server is listening on the configured port');
+                }
+                if (error.message.includes('timed out')) {
+                    throw new Error(`llama.cpp request timed out. Try:\n- Increasing timeout in settings\n- Using a smaller model\n- Reducing max concurrency`);
+                }
+            }
             throw new Error(`${this.provider.toUpperCase()} Request Failed: ${error.message}`);
         }
     }
@@ -111,6 +129,15 @@ export class OpenAIProvider implements LLMProviderInterface {
         };
 
         let baseUrl = 'https://api.openai.com/v1/chat/completions';
+
+        // llama.cpp uses custom endpoint
+        if (this.provider === 'llamacpp') {
+            const { useSettingsStore } = await import('../../../stores/settingsStore');
+            const endpoint = useSettingsStore.getState().llamaCppSettings.endpoint;
+            baseUrl = endpoint
+                ? `${endpoint}/v1/chat/completions`
+                : 'http://localhost:8080/v1/chat/completions';
+        }
 
         if (model.includes('/') || this.provider === 'openrouter') {
             baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
@@ -246,9 +273,33 @@ export class OpenAIProvider implements LLMProviderInterface {
                 }
             } catch (streamError: any) {
                 console.error(`[${this.provider}] Stream reading error:`, streamError);
+
+                // Enhanced error handling for llama.cpp
+                if (this.provider === 'llamacpp') {
+                    if (streamError.name === 'TypeError' && streamError.message.includes('fetch')) {
+                        onError('Cannot connect to llama.cpp server. Please verify:\n1. The server is running\n2. The endpoint URL is correct\n3. The server is listening on the configured port');
+                        return;
+                    }
+                    if (streamError.message.includes('timed out')) {
+                        onError(`llama.cpp request timed out. Try:\n- Increasing timeout in settings\n- Using a smaller model\n- Reducing max concurrency`);
+                        return;
+                    }
+                }
+
                 onError(streamError.message || 'Stream reading failed');
             }
         } catch (error: any) {
+            // Enhanced error handling for llama.cpp
+            if (this.provider === 'llamacpp') {
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    onError('Cannot connect to llama.cpp server. Please verify:\n1. The server is running\n2. The endpoint URL is correct\n3. The server is listening on the configured port');
+                    return;
+                }
+                if (error.message.includes('timed out')) {
+                    onError(`llama.cpp request timed out. Try:\n- Increasing timeout in settings\n- Using a smaller model\n- Reducing max concurrency`);
+                    return;
+                }
+            }
             onError(error.message || 'Unknown streaming error');
         }
     }

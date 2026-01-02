@@ -56,6 +56,7 @@ class LLMService {
             openrouter: new OpenAIProvider('openrouter'),
             anthropic: new AnthropicProvider(),
             gemini: new GeminiProvider(),
+            llamacpp: new OpenAIProvider('llamacpp'),
         };
     }
 
@@ -70,6 +71,10 @@ class LLMService {
 
     private getApiKey(): string {
         const { apiKeys, selectedProvider } = useSettingsStore.getState();
+        // llama.cpp doesn't require API key for local server
+        if (selectedProvider === 'llamacpp') {
+            return '';
+        }
         const key = apiKeys[selectedProvider];
         if (!key) {
             throw new Error(`API Key for ${selectedProvider} is missing. Please configure it in settings.`);
@@ -140,6 +145,48 @@ class LLMService {
         });
 
         await Promise.all(promises);
+        return results;
+    }
+
+    /**
+     * Execute tool calls with configurable concurrency limit
+     */
+    private async executeToolCallsWithConcurrency(
+        toolCalls: any[],
+        maxConcurrency: number
+    ): Promise<Map<string, any>> {
+        const results = new Map<string, any>();
+        const localToolNames = new Set(Object.keys(tools));
+
+        // Process tool calls in batches
+        for (let i = 0; i < toolCalls.length; i += maxConcurrency) {
+            const batch = toolCalls.slice(i, i + maxConcurrency);
+            console.log(`[LLMService] Processing batch ${Math.floor(i / maxConcurrency) + 1}: ${batch.length} tool calls (max concurrency: ${maxConcurrency})`);
+
+            const promises = batch.map(async (tc) => {
+                try {
+                    let result;
+                    if (localToolNames.has(tc.name)) {
+                        console.log(`[LLMService] Executing local tool: ${tc.name}`);
+                        result = await executeLocalTool(tc.name, tc.arguments);
+                    } else {
+                        result = await mcpManager.gameStateClient.callTool(tc.name, tc.arguments);
+                    }
+
+                    if (result && result.error) {
+                        results.set(tc.id, { error: result.error });
+                    } else {
+                        results.set(tc.id, result);
+                    }
+                } catch (e: any) {
+                    console.error(`[LLMService] Tool execution failed for ${tc.name}:`, e);
+                    results.set(tc.id, { error: e.message || 'Unknown error' });
+                }
+            });
+
+            await Promise.all(promises);
+        }
+
         return results;
     }
 
@@ -285,9 +332,16 @@ class LLMService {
                 toolCalls: response.toolCalls
             } as any);
 
-            // Execute ALL tool calls in parallel
-            console.log(`[LLMService] Executing ${response.toolCalls.length} tool calls in parallel`);
-            const results = await this.executeToolCallsBatch(response.toolCalls);
+            // Execute ALL tool calls with concurrency limit for llama.cpp
+            const { selectedProvider, llamaCppSettings } = useSettingsStore.getState();
+            const useConcurrency = selectedProvider === 'llamacpp';
+            const maxConcurrency = useConcurrency ? llamaCppSettings.maxConcurrency : response.toolCalls.length;
+
+            console.log(`[LLMService] Executing ${response.toolCalls.length} tool calls with max concurrency: ${maxConcurrency}`);
+
+            const results = useConcurrency
+                ? await this.executeToolCallsWithConcurrency(response.toolCalls, maxConcurrency)
+                : await this.executeToolCallsBatch(response.toolCalls);
 
             // Process results and parse important data
             for (const toolCall of response.toolCalls) {
@@ -398,8 +452,16 @@ class LLMService {
                                     callbacks.onToolCall(toolCall);
                                 }
 
-                                // Execute ALL tool calls in parallel
-                                const results = await this.executeToolCallsBatch(toolCalls);
+                                // Execute ALL tool calls with concurrency limit for llama.cpp
+                                const { selectedProvider, llamaCppSettings } = useSettingsStore.getState();
+                                const useConcurrency = selectedProvider === 'llamacpp';
+                                const maxConcurrency = useConcurrency ? llamaCppSettings.maxConcurrency : toolCalls.length;
+
+                                console.log(`[LLMService] Executing ${toolCalls.length} tool calls with max concurrency: ${maxConcurrency}`);
+
+                                const results = useConcurrency
+                                    ? await this.executeToolCallsWithConcurrency(toolCalls, maxConcurrency)
+                                    : await this.executeToolCallsBatch(toolCalls);
 
                                 // Process results
                                 const toolResults: { toolCall: any; result: any }[] = [];

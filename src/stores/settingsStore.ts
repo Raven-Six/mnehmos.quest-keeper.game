@@ -1,7 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type LLMProvider = 'openai' | 'anthropic' | 'gemini' | 'openrouter';
+export type LLMProvider = 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'llamacpp';
+
+interface LlamaCppSettings {
+    endpoint: string;        // Default: 'http://localhost:8080'
+    maxConcurrency: number;  // Default: 4 (parallel tool calls)
+    timeout: number;         // Default: 30000 (ms)
+}
 
 interface SettingsState {
     apiKeys: {
@@ -9,19 +15,25 @@ interface SettingsState {
         anthropic: string;
         gemini: string;
         openrouter: string;
+        llamacpp: string;
     };
     providerModels: {
         openai: string;
         anthropic: string;
         gemini: string;
         openrouter: string;
+        llamacpp: string;
     };
     selectedProvider: LLMProvider;
     systemPrompt: string;
+    llamaCppSettings: LlamaCppSettings;
     setApiKey: (provider: LLMProvider, key: string) => void;
     setProvider: (provider: LLMProvider) => void;
     setModel: (provider: LLMProvider, model: string) => void;
     setSystemPrompt: (prompt: string) => void;
+    setLlamaCppEndpoint: (endpoint: string) => void;
+    setLlamaCppMaxConcurrency: (max: number) => void;
+    setLlamaCppTimeout: (timeout: number) => void;
     // Helper to get current model
     getSelectedModel: () => string;
 }
@@ -220,15 +232,22 @@ export const useSettingsStore = create<SettingsState>()(
                 anthropic: '',
                 gemini: '',
                 openrouter: '',
+                llamacpp: '',
             },
             providerModels: {
                 openai: 'gpt-4.1',
                 anthropic: 'claude-sonnet-4-5-20250514',
                 gemini: 'gemini-2.0-flash',
                 openrouter: 'anthropic/claude-haiku-4.5',
+                llamacpp: 'llama-3.2-3b-instruct',
             },
             selectedProvider: 'openrouter',
             systemPrompt: DEFAULT_SYSTEM_PROMPT,
+            llamaCppSettings: {
+                endpoint: 'http://localhost:8080',
+                maxConcurrency: 4,
+                timeout: 30000,
+            },
             setApiKey: (provider, key) =>
                 set((state) => ({
                     apiKeys: { ...state.apiKeys, [provider]: key },
@@ -239,6 +258,18 @@ export const useSettingsStore = create<SettingsState>()(
                     providerModels: { ...state.providerModels, [provider]: model },
                 })),
             setSystemPrompt: (prompt) => set({ systemPrompt: prompt }),
+            setLlamaCppEndpoint: (endpoint) =>
+                set((state) => ({
+                    llamaCppSettings: { ...state.llamaCppSettings, endpoint }
+                })),
+            setLlamaCppMaxConcurrency: (max) =>
+                set((state) => ({
+                    llamaCppSettings: { ...state.llamaCppSettings, maxConcurrency: max }
+                })),
+            setLlamaCppTimeout: (timeout) =>
+                set((state) => ({
+                    llamaCppSettings: { ...state.llamaCppSettings, timeout }
+                })),
             getSelectedModel: () => {
                 const state = get();
                 return state.providerModels[state.selectedProvider];
@@ -246,6 +277,25 @@ export const useSettingsStore = create<SettingsState>()(
         }),
         {
             name: 'quest-keeper-settings',
+            migrate: (persistedState: any, _version: number) => {
+                // Migration to add llama.cpp settings to old persisted state
+                if (!persistedState.llamaCppSettings) {
+                    persistedState.llamaCppSettings = {
+                        endpoint: 'http://localhost:8080',
+                        maxConcurrency: 4,
+                        timeout: 30000,
+                    };
+                }
+                // Ensure llamacpp exists in apiKeys
+                if (persistedState.apiKeys && !persistedState.apiKeys.hasOwnProperty('llamacpp')) {
+                    persistedState.apiKeys.llamacpp = '';
+                }
+                // Ensure llamacpp exists in providerModels
+                if (persistedState.providerModels && !persistedState.providerModels.hasOwnProperty('llamacpp')) {
+                    persistedState.providerModels.llamacpp = 'llama-3.2-3b-instruct';
+                }
+                return persistedState;
+            },
         }
     )
 );
