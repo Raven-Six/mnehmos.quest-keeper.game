@@ -9,6 +9,14 @@ interface LlamaCppSettings {
     timeout: number;         // Default: 30000 (ms)
 }
 
+export interface SpoilerPattern {
+    id: string;
+    name: string;
+    pattern: string;         // Regex pattern to match
+    title: string;           // Title to show on spoiler
+    enabled: boolean;
+}
+
 interface SettingsState {
     apiKeys: {
         openai: string;
@@ -27,6 +35,7 @@ interface SettingsState {
     selectedProvider: LLMProvider;
     systemPrompt: string;
     llamaCppSettings: LlamaCppSettings;
+    spoilerPatterns: SpoilerPattern[];
     setApiKey: (provider: LLMProvider, key: string) => void;
     setProvider: (provider: LLMProvider) => void;
     setModel: (provider: LLMProvider, model: string) => void;
@@ -34,6 +43,11 @@ interface SettingsState {
     setLlamaCppEndpoint: (endpoint: string) => void;
     setLlamaCppMaxConcurrency: (max: number) => void;
     setLlamaCppTimeout: (timeout: number) => void;
+    // Spoiler pattern management
+    addSpoilerPattern: (pattern: Omit<SpoilerPattern, 'id'>) => void;
+    updateSpoilerPattern: (id: string, pattern: Partial<SpoilerPattern>) => void;
+    deleteSpoilerPattern: (id: string) => void;
+    toggleSpoilerPattern: (id: string) => void;
     // Helper to get current model
     getSelectedModel: () => string;
 }
@@ -224,6 +238,17 @@ If the user types \`/start\`, the system handles character creation. Once comple
 *Now go forth and tell an epic tale.*`;
 
 
+// Default spoiler patterns
+const DEFAULT_SPOILER_PATTERNS: SpoilerPattern[] = [
+    {
+        id: 'thought',
+        name: 'Code Blocks (Thoughts)',
+        pattern: '```([\\s\\S]*?)```',
+        title: '💭 Thought',
+        enabled: true,
+    },
+];
+
 export const useSettingsStore = create<SettingsState>()(
     persist(
         (set, get) => ({
@@ -248,6 +273,7 @@ export const useSettingsStore = create<SettingsState>()(
                 maxConcurrency: 4,
                 timeout: 30000,
             },
+            spoilerPatterns: DEFAULT_SPOILER_PATTERNS,
             setApiKey: (provider, key) =>
                 set((state) => ({
                     apiKeys: { ...state.apiKeys, [provider]: key },
@@ -269,6 +295,29 @@ export const useSettingsStore = create<SettingsState>()(
             setLlamaCppTimeout: (timeout) =>
                 set((state) => ({
                     llamaCppSettings: { ...state.llamaCppSettings, timeout }
+                })),
+            addSpoilerPattern: (pattern) =>
+                set((state) => ({
+                    spoilerPatterns: [
+                        ...state.spoilerPatterns,
+                        { ...pattern, id: Date.now().toString() }
+                    ]
+                })),
+            updateSpoilerPattern: (id, updatedPattern) =>
+                set((state) => ({
+                    spoilerPatterns: state.spoilerPatterns.map((p) =>
+                        p.id === id ? { ...p, ...updatedPattern } : p
+                    )
+                })),
+            deleteSpoilerPattern: (id) =>
+                set((state) => ({
+                    spoilerPatterns: state.spoilerPatterns.filter((p) => p.id !== id)
+                })),
+            toggleSpoilerPattern: (id) =>
+                set((state) => ({
+                    spoilerPatterns: state.spoilerPatterns.map((p) =>
+                        p.id === id ? { ...p, enabled: !p.enabled } : p
+                    )
                 })),
             getSelectedModel: () => {
                 const state = get();
@@ -293,6 +342,10 @@ export const useSettingsStore = create<SettingsState>()(
                 // Ensure llamacpp exists in providerModels
                 if (persistedState.providerModels && !persistedState.providerModels.hasOwnProperty('llamacpp')) {
                     persistedState.providerModels.llamacpp = 'llama-3.2-3b-instruct';
+                }
+                // Ensure spoilerPatterns exists
+                if (!persistedState.spoilerPatterns) {
+                    persistedState.spoilerPatterns = DEFAULT_SPOILER_PATTERNS;
                 }
                 return persistedState;
             },

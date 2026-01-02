@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSettingsStore } from '../../stores/settingsStore';
 
 interface SpoilerProps {
   title: string;
@@ -13,8 +14,8 @@ export const Spoiler: React.FC<SpoilerProps> = ({ title, children }) => {
       <button
         onClick={() => setRevealed(!revealed)}
         className={`w-full px-4 py-3 text-left flex items-center gap-3 transition-all duration-300 ${
-          revealed 
-            ? 'bg-terminal-purple/20 text-terminal-purple' 
+          revealed
+            ? 'bg-terminal-purple/20 text-terminal-purple'
             : 'bg-terminal-purple/10 hover:bg-terminal-purple/20 text-terminal-purple/80'
         }`}
       >
@@ -28,7 +29,7 @@ export const Spoiler: React.FC<SpoilerProps> = ({ title, children }) => {
           </span>
         )}
       </button>
-      
+
       <div
         className={`overflow-hidden transition-all duration-500 ease-in-out ${
           revealed ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'
@@ -46,20 +47,49 @@ export const Spoiler: React.FC<SpoilerProps> = ({ title, children }) => {
 
 /**
  * Preprocesses markdown content to convert spoiler syntax to a parseable format.
- * Converts: :::spoiler[Title]\nContent\n:::
+ * Converts:
+ * - :::spoiler[Title]\nContent\n::: (explicit spoilers)
+ * - Configured patterns from settings (auto-hide based on user preferences)
  * To: A special marker that the component can detect
  */
-export function preprocessSpoilers(content: string): {
+export function preprocessSpoilers(
+  content: string,
+  patterns: Array<{ pattern: string; title: string; enabled: boolean }>,
+): {
   content: string;
   spoilers: Array<{ id: string; title: string; content: string }>;
 } {
   const spoilers: Array<{ id: string; title: string; content: string }> = [];
   let idCounter = 0;
 
-  // Match :::spoiler[Title]\nContent\n:::
+  let processedContent = content;
+
+  // First, handle configured auto-spoiler patterns (only enabled ones)
+  for (const config of patterns) {
+    if (!config.enabled) continue;
+
+    try {
+      const regex = new RegExp(config.pattern, 'g');
+      processedContent = processedContent.replace(regex, (_match, ...groups: string[]) => {
+        const id = `auto-${idCounter++}`;
+        // Get the first capturing group if it exists, otherwise use the full match
+        const spoilerContent = groups.length > 0 ? groups[0] : _match;
+        spoilers.push({
+          id,
+          title: config.title,
+          content: spoilerContent.trim()
+        });
+        return `{{SPOILER:${id}}}`;
+      });
+    } catch (error) {
+      console.warn(`[Spoiler] Invalid regex pattern: ${config.pattern}`, error);
+    }
+  }
+
+  // Then, handle :::spoiler[Title]\nContent\n::: (explicit spoilers)
   const spoilerRegex = /:::spoiler\[(.*?)\]\n([\s\S]*?)\n:::/g;
 
-  const processedContent = content.replace(spoilerRegex, (_, title, spoilerContent) => {
+  processedContent = processedContent.replace(spoilerRegex, (_, title, spoilerContent) => {
     const id = `spoiler-${idCounter++}`;
     spoilers.push({
       id,
@@ -79,20 +109,21 @@ export const SpoilerRenderer: React.FC<{
   content: string;
   renderMarkdown: (text: string) => React.ReactNode;
 }> = ({ content, renderMarkdown }) => {
-  const { content: processedContent, spoilers } = preprocessSpoilers(content);
-  
+  const spoilerPatterns = useSettingsStore((state) => state.spoilerPatterns);
+  const { content: processedContent, spoilers } = preprocessSpoilers(content, spoilerPatterns);
+
   // If no spoilers, just render normally
   if (spoilers.length === 0) {
     return <>{renderMarkdown(content)}</>;
   }
 
   // Split content by spoiler placeholders and render
-  const parts = processedContent.split(/(\{\{SPOILER:spoiler-\d+\}\})/);
-  
+  const parts = processedContent.split(/(\{\{SPOILER:(spoiler-\d+|auto-\d+)\}\})/);
+
   return (
     <>
       {parts.map((part, index) => {
-        const spoilerMatch = part.match(/\{\{SPOILER:(spoiler-\d+)\}\}/);
+        const spoilerMatch = part.match(/\{\{SPOILER:(spoiler-\d+|auto-\d+)\}\}/);
         if (spoilerMatch) {
           const spoilerId = spoilerMatch[1];
           const spoiler = spoilers.find(s => s.id === spoilerId);

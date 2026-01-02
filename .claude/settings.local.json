@@ -25,7 +25,9 @@
       "Bash(cat:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(del:*)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

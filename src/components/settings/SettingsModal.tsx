@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSettingsStore, LLMProvider } from '../../stores/settingsStore';
 import { open } from '@tauri-apps/plugin-shell';
 import { appLogDir } from '@tauri-apps/api/path';
@@ -16,6 +16,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         providerModels,
         systemPrompt,
         llamaCppSettings,
+        spoilerPatterns,
         setApiKey,
         setProvider,
         setModel,
@@ -23,13 +24,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         setLlamaCppEndpoint,
         setLlamaCppMaxConcurrency,
         setLlamaCppTimeout,
+        addSpoilerPattern,
+        deleteSpoilerPattern,
+        toggleSpoilerPattern,
     } = useSettingsStore();
+
+    // Local state for adding new spoiler pattern
+    const [newPattern, setNewPattern] = useState({
+        name: '',
+        pattern: '',
+        title: '',
+    });
 
     const handleOpenLogs = async () => {
         try {
             const logDir = await appLogDir();
             console.log('[Settings] Log dir path:', logDir);
-            
+
             // Ensure directory exists first
             try {
                 await mkdir(logDir, { recursive: true });
@@ -45,6 +56,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         }
     };
 
+    const handleAddPattern = () => {
+        if (!newPattern.name || !newPattern.pattern || !newPattern.title) {
+            return;
+        }
+        addSpoilerPattern({
+            name: newPattern.name,
+            pattern: newPattern.pattern,
+            title: newPattern.title,
+            enabled: true,
+        });
+        setNewPattern({ name: '', pattern: '', title: '' });
+    };
+
+    const handleDeletePattern = (id: string) => {
+        if (confirm('Are you sure you want to delete this spoiler pattern?')) {
+            deleteSpoilerPattern(id);
+        }
+    };
+
     // Local state for the form to allow "Save & Apply" behavior
     // However, for instant feedback/simplicity, we can keep using the store directly
     // but the user requested "Save and Apply".
@@ -56,8 +86,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-lg border border-terminal-green bg-terminal-black p-6 shadow-glow">
-                <div className="mb-6 flex items-center justify-between border-b border-terminal-green-dim pb-4">
+            <div className="w-full max-w-md rounded-lg border border-terminal-green bg-terminal-black shadow-glow flex flex-col max-h-[90vh]">
+                <div className="p-6 flex items-center justify-between border-b border-terminal-green-dim flex-shrink-0">
                     <h2 className="text-xl font-bold text-terminal-green">CONFIGURATION</h2>
                     <button
                         onClick={onClose}
@@ -67,7 +97,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     </button>
                 </div>
 
-                <div className="space-y-6">
+                <div className="p-6 overflow-y-auto space-y-6 flex-1">
                     {/* Provider Selection */}
                     <div className="space-y-2">
                         <label className="block text-sm font-bold text-terminal-green">API PROVIDER</label>
@@ -254,6 +284,84 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         />
                     </div>
 
+                    {/* Spoiler Patterns */}
+                    <div className="space-y-3">
+                        <label className="block text-sm font-bold text-terminal-green">AUTO-SPOILER PATTERNS</label>
+                        <p className="text-xs text-terminal-green-dim">
+                            Configure which chat content patterns are automatically hidden in spoilers.
+                        </p>
+
+                        {/* Existing patterns list */}
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                            {spoilerPatterns.map((pattern) => (
+                                <div
+                                    key={pattern.id}
+                                    className="flex items-center gap-2 rounded border border-terminal-green-dim bg-black/30 p-2"
+                                >
+                                    <button
+                                        onClick={() => toggleSpoilerPattern(pattern.id)}
+                                        className={`flex-shrink-0 px-2 py-1 text-xs font-bold rounded ${
+                                            pattern.enabled
+                                                ? 'bg-terminal-green text-terminal-black'
+                                                : 'bg-terminal-green/20 text-terminal-green-dim'
+                                        }`}
+                                    >
+                                        {pattern.enabled ? 'ON' : 'OFF'}
+                                    </button>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-bold text-terminal-green truncate">
+                                            {pattern.name}
+                                        </div>
+                                        <div className="text-xs text-terminal-green-dim truncate">
+                                            {pattern.pattern}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleDeletePattern(pattern.id)}
+                                        className="flex-shrink-0 text-terminal-green hover:text-red-400 px-2"
+                                        title="Delete pattern"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Add new pattern */}
+                        <div className="space-y-2 rounded border border-terminal-green-dim bg-black/30 p-3">
+                            <div className="grid grid-cols-2 gap-2">
+                                <input
+                                    type="text"
+                                    value={newPattern.name}
+                                    onChange={(e) => setNewPattern({ ...newPattern, name: e.target.value })}
+                                    className="rounded border border-terminal-green bg-black px-2 py-1 text-sm text-terminal-green focus:border-terminal-green-bright focus:outline-none"
+                                    placeholder="Pattern name"
+                                />
+                                <input
+                                    type="text"
+                                    value={newPattern.title}
+                                    onChange={(e) => setNewPattern({ ...newPattern, title: e.target.value })}
+                                    className="rounded border border-terminal-green bg-black px-2 py-1 text-sm text-terminal-green focus:border-terminal-green-bright focus:outline-none"
+                                    placeholder="Spoiler title"
+                                />
+                            </div>
+                            <input
+                                type="text"
+                                value={newPattern.pattern}
+                                onChange={(e) => setNewPattern({ ...newPattern, pattern: e.target.value })}
+                                className="w-full rounded border border-terminal-green bg-black px-2 py-1 text-sm text-terminal-green focus:border-terminal-green-bright focus:outline-none"
+                                placeholder="Regex pattern (e.g., ```([\\s\\S]*?)```)"
+                            />
+                            <button
+                                onClick={handleAddPattern}
+                                disabled={!newPattern.name || !newPattern.pattern || !newPattern.title}
+                                className="w-full rounded border border-terminal-green bg-black/50 px-3 py-1 text-sm text-terminal-green transition-colors hover:bg-terminal-green/10 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+                            >
+                                + ADD PATTERN
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Debug / Logs */}
                     <div className="pt-2 border-t border-terminal-green-dim">
                         <label className="block text-sm font-bold text-terminal-green mb-2">DEBUGGING</label>
@@ -266,7 +374,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     </div>
                 </div>
 
-                <div className="mt-6 flex justify-end border-t border-terminal-green-dim pt-4">
+                <div className="p-6 flex justify-end border-t border-terminal-green-dim flex-shrink-0">
                     <button
                         onClick={onClose}
                         className="rounded bg-terminal-green px-6 py-2 font-bold text-terminal-black hover:bg-terminal-green-bright"

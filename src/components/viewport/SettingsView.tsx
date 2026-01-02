@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSettingsStore, LLMProvider } from '../../stores/settingsStore';
 import { ThemeSelector } from '../ThemeSelector';
 
@@ -9,6 +9,7 @@ export const SettingsView: React.FC = () => {
         providerModels,
         systemPrompt,
         llamaCppSettings,
+        spoilerPatterns,
         setApiKey,
         setProvider,
         setModel,
@@ -16,7 +17,36 @@ export const SettingsView: React.FC = () => {
         setLlamaCppEndpoint,
         setLlamaCppMaxConcurrency,
         setLlamaCppTimeout,
+        addSpoilerPattern,
+        deleteSpoilerPattern,
+        toggleSpoilerPattern,
     } = useSettingsStore();
+
+    // Local state for adding new spoiler pattern
+    const [newPattern, setNewPattern] = useState({
+        name: '',
+        pattern: '',
+        title: '',
+    });
+
+    const handleAddPattern = () => {
+        if (!newPattern.name || !newPattern.pattern || !newPattern.title) {
+            return;
+        }
+        addSpoilerPattern({
+            name: newPattern.name,
+            pattern: newPattern.pattern,
+            title: newPattern.title,
+            enabled: true,
+        });
+        setNewPattern({ name: '', pattern: '', title: '' });
+    };
+
+    const handleDeletePattern = (id: string) => {
+        if (confirm('Are you sure you want to delete this spoiler pattern?')) {
+            deleteSpoilerPattern(id);
+        }
+    };
 
     // Theme-aware form element classes
     const inputClasses = "w-full rounded border border-terminal-green-dim bg-terminal-dim px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none";
@@ -24,12 +54,12 @@ export const SettingsView: React.FC = () => {
 
     return (
         <div className="flex items-center justify-center h-full w-full bg-terminal-black p-8">
-            <div className="w-full max-w-2xl rounded-lg border border-terminal-green-dim bg-terminal-dim p-8 shadow-lg">
-                <div className="mb-8 border-b border-terminal-green-dim pb-4">
+            <div className="w-full max-w-2xl rounded-lg border border-terminal-green-dim bg-terminal-dim shadow-lg flex flex-col max-h-full overflow-hidden">
+                <div className="p-8 border-b border-terminal-green-dim flex-shrink-0">
                     <h2 className="text-2xl font-bold text-terminal-green">⚙️ CONFIGURATION</h2>
                 </div>
 
-                <div className="space-y-6">
+                <div className="p-8 overflow-y-auto space-y-6 flex-1">
                     {/* Theme Selection */}
                     <ThemeSelector />
 
@@ -235,6 +265,86 @@ export const SettingsView: React.FC = () => {
                             className="h-32 w-full rounded border border-terminal-green-dim bg-terminal-dim px-3 py-2 text-terminal-green focus:border-terminal-green-bright focus:outline-none"
                             placeholder="Define the AI's behavior..."
                         />
+                    </div>
+
+                    <div className="border-t border-terminal-green-dim my-4"></div>
+
+                    {/* Spoiler Patterns */}
+                    <div className="space-y-3">
+                        <label className="block text-sm font-bold text-terminal-green">AUTO-SPOILER PATTERNS</label>
+                        <p className="text-xs text-terminal-green-dim">
+                            Configure which chat content patterns are automatically hidden in spoilers.
+                        </p>
+
+                        {/* Existing patterns list */}
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {spoilerPatterns.map((pattern) => (
+                                <div
+                                    key={pattern.id}
+                                    className="flex items-center gap-2 rounded border border-terminal-green-dim bg-terminal-black/30 p-2"
+                                >
+                                    <button
+                                        onClick={() => toggleSpoilerPattern(pattern.id)}
+                                        className={`flex-shrink-0 px-2 py-1 text-xs font-bold rounded ${
+                                            pattern.enabled
+                                                ? 'bg-terminal-green text-terminal-black'
+                                                : 'bg-terminal-green/20 text-terminal-green-dim'
+                                        }`}
+                                    >
+                                        {pattern.enabled ? 'ON' : 'OFF'}
+                                    </button>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-bold text-terminal-green truncate">
+                                            {pattern.name}
+                                        </div>
+                                        <div className="text-xs text-terminal-green-dim truncate">
+                                            {pattern.pattern}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleDeletePattern(pattern.id)}
+                                        className="flex-shrink-0 text-terminal-green hover:text-red-400 px-2"
+                                        title="Delete pattern"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Add new pattern */}
+                        <div className="space-y-2 rounded border border-terminal-green-dim bg-terminal-black/30 p-3">
+                            <div className="grid grid-cols-2 gap-2">
+                                <input
+                                    type="text"
+                                    value={newPattern.name}
+                                    onChange={(e) => setNewPattern({ ...newPattern, name: e.target.value })}
+                                    className={inputClasses}
+                                    placeholder="Pattern name"
+                                />
+                                <input
+                                    type="text"
+                                    value={newPattern.title}
+                                    onChange={(e) => setNewPattern({ ...newPattern, title: e.target.value })}
+                                    className={inputClasses}
+                                    placeholder="Spoiler title"
+                                />
+                            </div>
+                            <input
+                                type="text"
+                                value={newPattern.pattern}
+                                onChange={(e) => setNewPattern({ ...newPattern, pattern: e.target.value })}
+                                className={inputClasses}
+                                placeholder="Regex pattern (e.g., ```([\\s\\S]*?)```)"
+                            />
+                            <button
+                                onClick={handleAddPattern}
+                                disabled={!newPattern.name || !newPattern.pattern || !newPattern.title}
+                                className="w-full rounded border border-terminal-green-dim bg-terminal-black/50 px-3 py-1 text-sm text-terminal-green transition-colors hover:bg-terminal-green/10 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+                            >
+                                + ADD PATTERN
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
